@@ -1,0 +1,7 @@
+/*.iml
+.idea
+dist/
+cmd/kwxd/configs/config.local.toml
+/txy_root
+/mahjong
+/mahjong.exe
