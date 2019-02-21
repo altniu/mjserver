@@ -1,0 +1,2 @@
+# mjserver
+mahjong server
