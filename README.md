@@ -1,7 +1,9 @@
 ### nanoserver的修改版本
 
 ### 运行
-Golang版本：go1.11
+golang版本：go1.11
+
+安装mysql redis configs目录下配置mysql和redis
 
 ### 修改go.mod 替换被墙的包,同时添加vendor
 

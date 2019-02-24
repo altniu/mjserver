@@ -29,8 +29,8 @@ port = 6379
 host = "129.204.58.232"
 port = 3306
 dbname = "scmj"
-password = "123456"
-username = "root"
+password = "smy180626"
+username = "stephen"
 args = "charset=utf8mb4"
 buf_size = 10
 max_idle_conns = 20
