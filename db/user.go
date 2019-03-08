@@ -60,9 +60,9 @@ func DeleteUser(uid int64) error {
 }
 
 func UserAddCoin(uid int64, coin int64) error {
-	session := database.NewSession()
+	session := database.NewSession() //创建事务
 	defer session.Close()
-	err := session.Begin()
+	err := session.Begin() //开始事务
 	if err != nil {
 		return errutil.ErrDBOperation
 	}
@@ -77,10 +77,10 @@ func UserAddCoin(uid int64, coin int64) error {
 	u.Coin += coin
 	_, err = session.Where("uid=?", uid).Update(u)
 	if err != nil {
-		session.Rollback()
+		session.Rollback() //回滚事务
 		return err
 	}
-	return session.Commit()
+	return session.Commit() //完成事务
 }
 
 func UserLoseCoin(id int64, coin int64) error {

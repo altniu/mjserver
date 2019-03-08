@@ -1,5 +1,14 @@
 package model
 
+/*
+not null 非空
+default 默认值
+index 是否索引
+BIGINT int64
+VARCHAR 带长度字符串
+INT   int8 int16 int32 int64
+*/
+
 type AdminRecharge struct {
 	Id           int64
 	AgentId      int64  `xorm:"not null BIGINT(20) default"`

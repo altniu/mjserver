@@ -4,20 +4,25 @@ import (
 	"github.com/lonng/nanoserver/protocol"
 )
 
-// TODO: conc
+// 供web使用的一些游戏内的接口 通过chan传递操作
+
+// 踢人
 func Kick(uid int64) error {
-	defaultManager.chKick <- uid
+	defaultPlayerManager.chKick <- uid
 	return nil
 }
 
+// 广播
 func BroadcastSystemMessage(message string) {
-	defaultManager.group.Broadcast("onBroadcast", &protocol.StringMessage{Message: message})
+	defaultPlayerManager.group.Broadcast("onBroadcast", &protocol.StringMessage{Message: message})
 }
 
+// 重置
 func Reset(uid int64) {
-	defaultManager.chReset <- uid
+	defaultPlayerManager.chReset <- uid
 }
 
+// 充值
 func Recharge(uid, coin int64) {
-	defaultManager.chRecharge <- RechargeInfo{uid, coin}
+	defaultPlayerManager.chRecharge <- RechargeInfo{uid, coin}
 }

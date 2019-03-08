@@ -26,20 +26,22 @@ var (
 	messages []string              // 广播消息
 	logger   = log.WithFields(log.Fields{"component": "http", "service": "login"})
 
-	// 游客登陆
+	//游客登陆
 	enableGuest   = false
 	guestChannels = []string{}
 
 	enableDebug = false
 )
 
-const defaultCoin = 10
+const defaultCoin = 100 //默认金币
 
+//添加广播消息
 func AddMessage(message string) {
 	messages = append(messages, message)
 }
 
 func MakeLoginService() http.Handler {
+	// 读取游戏服务器的配置
 	host = viper.GetString("game-server.host")
 	port = viper.GetInt("game-server.port")
 
@@ -47,6 +49,8 @@ func MakeLoginService() http.Handler {
 	config.Version = viper.GetString("update.version")
 	config.Android = viper.GetString("update.android")
 	config.IOS = viper.GetString("update.ios")
+
+	// 心跳配置
 	config.Heartbeat = viper.GetInt("core.heartbeat")
 
 	// 分享相关配置
@@ -72,24 +76,23 @@ func MakeLoginService() http.Handler {
 	}
 
 	messages = viper.GetStringSlice("broadcast.message")
-
-	logger.Debugf("version infomation: %+v", config)
 	logger.Debugf("广播消息: %v", messages)
 
-	fu := viper.GetBool("update.force")
-	logger.Infof("是否强制更新: %t", fu)
-	config.ForceUpdate = fu
+	logger.Debugf("version infomation: %+v", config)
+
+	config.ForceUpdate = viper.GetBool("update.force")
+	logger.Infof("是否强制更新: %t", config.ForceUpdate)
 
 	router := mux.NewRouter()
 	router.Handle("/v1/user/login/query", nex.Handler(queryHandler)).Methods("POST")        //三方登录
 	router.Handle("/v1/user/login/3rd", nex.Handler(thirdUserLoginHandler)).Methods("POST") //三方登录
-	router.Handle("/v1/user/login/guest", nex.Handler(guestLoginHandler)).Methods("POST")   //三方登录
-	router.Handle("/v1/user/club", nex.Handler(clubListHandler)).Methods("GET")             // 获取俱乐部列表
+	router.Handle("/v1/user/login/guest", nex.Handler(guestLoginHandler)).Methods("POST")   //游客登录
+	router.Handle("/v1/user/club", nex.Handler(clubListHandler)).Methods("GET")             //获取俱乐部列表
 	return router
 }
 
 func ip(addr string) string {
-	addr = strings.TrimSpace(addr)
+	addr = strings.TrimSpace(addr) //删除首尾连续的空白字符
 	deflt := "127.0.0.1"
 	if addr == "" {
 		return deflt
@@ -209,7 +212,7 @@ func thirdUserLoginHandler(r *http.Request, data *protocol.ThirdUserLoginRequest
 		Uid:      u.Id, //注意此处是id而非uid
 		HeadUrl:  thirdUser.HeadUrl,
 		Sex:      thirdUser.Sex,
-		IP:       host,
+		IP:       host, //游戏服务器的ip端口
 		Port:     port,
 		FangKa:   u.Coin,
 		PlayerIP: ip(r.RemoteAddr),

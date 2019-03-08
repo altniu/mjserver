@@ -17,16 +17,16 @@ type Loser struct {
 	score int
 }
 
+//Player
 type Player struct {
 	uid  int64  // 用户ID
 	head string // 头像地址
 	name string // 玩家名字
 	ip   string // ip地址
 	sex  int    // 性别
-	coin int64  // 房卡数量
+	coin int64  // 金币数量
 
-	// 玩家数据
-	session *session.Session
+	session *session.Session // 玩家session
 
 	// 游戏相关字段
 	onHand   mahjong.Mahjong
@@ -65,12 +65,13 @@ func newPlayer(s *session.Session, uid int64, name, head, ip string, sex int) *P
 	return p
 }
 
-// 异步从数据库同步房卡
+// 异步从数据库同步玩家数据
 func (p *Player) syncCoinFromDB() {
+	//go func  goroutine中执行func并且通过defer recover捕获异常
 	async.Run(func() {
 		u, err := db.QueryUser(p.uid)
 		if err != nil {
-			p.logger.Errorf("玩家同步房卡错误, Error=%v", err)
+			p.logger.Errorf("玩家同步金币错误, Error=%v", err)
 			return
 		}
 
@@ -81,25 +82,25 @@ func (p *Player) syncCoinFromDB() {
 	})
 }
 
-// 异步扣除玩家房卡
+// 异步扣除玩家金币
 func (p *Player) loseCoin(count int64, consume *model.CardConsume) {
 	async.Run(func() {
 		u, err := db.QueryUser(p.uid)
 		if err != nil {
-			p.logger.Errorf("扣除房卡，查询玩家错误, Error=%v", err)
+			p.logger.Errorf("扣除金币，查询玩家错误, Error=%v", err)
 			return
 		}
 
-		// 即使数据库不成功，玩家房卡数量依然扣除
+		// 即使数据库不成功，玩家金币数量依然扣除
 		p.coin -= count
 		u.Coin = p.coin
 		if err := db.UpdateUser(u); err != nil {
-			p.logger.Errorf("扣除房卡，更新房卡数量错误, Error=%v", err)
+			p.logger.Errorf("扣除金币，更新金币数量错误, Error=%v", err)
 			return
 		}
 
 		if u.Coin != p.coin {
-			p.logger.Errorf("玩家扣除房卡，同步到数据库后，发现房卡数量不一致，玩家数量=%d，数据库数量=%d", p.coin, u.Coin)
+			p.logger.Errorf("玩家扣除金币，同步到数据库后，发现金币数量不一致，玩家数量=%d，数据库数量=%d", p.coin, u.Coin)
 		}
 
 		if err := db.Insert(consume); err != nil {
@@ -112,6 +113,7 @@ func (p *Player) loseCoin(count int64, consume *model.CardConsume) {
 	})
 }
 
+//设置玩家所在的桌子
 func (p *Player) setDesk(d *Desk, turn int) {
 	if d == nil {
 		p.logger.Error("桌号为空")
@@ -126,16 +128,16 @@ func (p *Player) setDesk(d *Desk, turn int) {
 	//全、半频道
 	p.ctx.Opts = d.opts
 	p.ctx.DeskNo = string(d.roomNo)
-
 }
 
 func (p *Player) setIp(ip string) {
 	p.ip = ip
 }
 
+//player 关联session session关联player
 func (p *Player) bindSession(s *session.Session) {
 	p.session = s
-	p.session.Set(kCurPlayer, p)
+	p.session.Set(kCurPlayer, p) //"player"字段
 }
 
 func (p *Player) removeSession() {

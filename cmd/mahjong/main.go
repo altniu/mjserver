@@ -7,17 +7,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lonng/nanoserver/cmd/mahjong/game"
-	"github.com/lonng/nanoserver/cmd/mahjong/web"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/lonng/nano"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/urfave/cli"
+
+	"github.com/lonng/nanoserver/cmd/mahjong/game"
+	"github.com/lonng/nanoserver/cmd/mahjong/web"
 )
 
 func main() {
+	//命令行应用
 	app := cli.NewApp()
 
 	// base application info
@@ -41,20 +42,28 @@ func main() {
 	}
 
 	app.Action = serve
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func serve(c *cli.Context) error {
+	nano.EnableDebug()
+
+	//c.Args().Get(0) 可以获得运行参数
+	//viper从命令行标志 环境变量 本地配置文件 远程配置系统etcd等读取配置信息
 	viper.SetConfigType("toml")
 	viper.SetConfigFile(c.String("config"))
 	viper.ReadInConfig()
 
+	//设置日志的输出格式 logrus.JSONFormatter{}和logrus.TextFormatter{}
 	log.SetFormatter(&log.TextFormatter{DisableColors: true})
-	nano.EnableDebug()
 	if viper.GetBool("core.debug") {
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(log.DebugLevel) //设置最低的日志级别
 	}
 
+	//运行时是否包含参数--cpuprofile
 	if c.Bool("cpuprofile") {
 		filename := fmt.Sprintf("cpuprofile-%d.pprof", time.Now().Unix())
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, os.ModePerm)

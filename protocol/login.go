@@ -33,12 +33,12 @@ type UserLoginResponse struct {
 type LoginRequest struct {
 	AppID     string `json:"appId"`     //用户来自于哪一个应用
 	ChannelID string `json:"channelId"` //用户来自于哪一个渠道
-	IMEI      string `json:"imei"`
+	IMEI      string `json:"imei"`      //识别设备IMEI
 	Device    Device `json:"device"`
 }
 
 type ClientConfig struct {
-	Version     string `json:"version"`
+	Version     string `json:"version"` //更新配置
 	Android     string `json:"android"`
 	IOS         string `json:"ios"`
 	Heartbeat   int    `json:"heartbeat"`
@@ -47,11 +47,11 @@ type ClientConfig struct {
 	Title string `json:"title"` // 分享标题
 	Desc  string `json:"desc"`  // 分享描述
 
-	Daili1 string `json:"daili1"`
+	Daili1 string `json:"daili1"` //客服配置
 	Daili2 string `json:"daili2"`
 	Kefu1  string `json:"kefu1"`
 
-	AppId  string `json:"appId"`
+	AppId  string `json:"appId"` //语音配置
 	AppKey string `json:"appKey"`
 }
 

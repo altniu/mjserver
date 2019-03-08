@@ -5,11 +5,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//go-xorm的日志
+
 type Logger struct {
 	*log.Entry
 	level core.LogLevel
 }
 
+//设置日志级别
 func (l *Logger) SetLevel(level core.LogLevel) {
 	l.level = level
 }

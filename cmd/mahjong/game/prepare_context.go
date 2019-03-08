@@ -1,5 +1,7 @@
 package game
 
+//玩家准备和齐牌状态记录
+
 type prepareContext struct {
 	sortedStatus map[int64]bool //是否已经齐牌完毕
 	readyStatus  map[int64]bool //是否已经ready完毕

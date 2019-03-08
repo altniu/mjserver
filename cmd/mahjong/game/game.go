@@ -65,8 +65,8 @@ func Startup() {
 	logger.Infof("当前游戏服务器版本: %s, 是否强制更新: %t, 当前心跳时间间隔: %d秒", version, forceUpdate, heartbeat)
 	logger.Info("game service starup")
 
-	// register game handler
-	nano.Register(defaultManager)
+	// register game handler 注册组件
+	nano.Register(defaultPlayerManager)
 	nano.Register(defaultDeskManager)
 	nano.Register(new(ClubManager))
 
@@ -79,4 +79,5 @@ func Startup() {
 	nano.SetSerializer(json.NewSerializer())
 	addr := fmt.Sprintf(":%d", viper.GetInt("game-server.port"))
 	nano.Listen(addr, nano.WithPipeline(pipeline))
+	//Listen listens on the TCP network address addr and then calls Serve with handler to handle requests on incoming connections
 }

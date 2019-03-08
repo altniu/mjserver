@@ -99,7 +99,7 @@ func (manager *DeskManager) AfterInit() {
 		manager.dumpDeskInfo()
 
 		// 统计结果异步写入数据库
-		sCount := defaultManager.sessionCount()
+		sCount := defaultPlayerManager.sessionCount()
 		dCount := len(manager.desks)
 		async.Run(func() {
 			db.InsertOnline(sCount, dCount)
@@ -113,7 +113,7 @@ func (manager *DeskManager) dumpDeskInfo() {
 		return
 	}
 
-	logger.Infof("剩余房间数量: %d 在线人数: %d  当前时间: %s", c, defaultManager.sessionCount(), time.Now().Format("2006-01-02 15:04:05"))
+	logger.Infof("剩余房间数量: %d 在线人数: %d  当前时间: %s", c, defaultPlayerManager.sessionCount(), time.Now().Format("2006-01-02 15:04:05"))
 	for no, d := range manager.desks {
 		logger.Debugf("房号: %s, 创建时间: %s, 创建玩家: %d, 状态: %s, 总局数: %d, 当前局数: %d",
 			no, time.Unix(d.createdAt, 0).String(), d.creator, d.status().String(), d.opts.MaxRound, d.round)
@@ -132,7 +132,7 @@ func (manager *DeskManager) onPlayerDisconnect(s *session.Session) error {
 	p.removeSession()
 
 	if p.desk == nil || p.desk.isDestroy() {
-		defaultManager.offline(uid)
+		defaultPlayerManager.offline(uid)
 		return nil
 	}
 
@@ -206,7 +206,7 @@ func (manager *DeskManager) ReConnect(s *session.Session, req *protocol.ReConnec
 	logger.Infof("玩家重新连接服务器: UID=%d", uid)
 
 	// 设置用户
-	p, ok := defaultManager.player(uid)
+	p, ok := defaultPlayerManager.player(uid)
 	if !ok {
 		logger.Infof("玩家之前用户信息已被清除，重新初始化用户信息: UID=%d", uid)
 		ip := ""
@@ -214,7 +214,7 @@ func (manager *DeskManager) ReConnect(s *session.Session, req *protocol.ReConnec
 			ip = parts[0]
 		}
 		p = newPlayer(s, uid, req.Name, req.HeadUrl, ip, req.Sex)
-		defaultManager.setPlayer(uid, p)
+		defaultPlayerManager.setPlayer(uid, p)
 	} else {
 		logger.Infof("玩家之前用户信息存在服务器上，替换session: UID=%d", uid)
 

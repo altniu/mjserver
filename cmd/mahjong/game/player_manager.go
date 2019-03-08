@@ -13,13 +13,14 @@ import (
 
 const kickResetBacklog = 8
 
-var defaultManager = NewManager()
+//用户管理组件
+var defaultPlayerManager = NewPlayerManager()
 
 type (
-	Manager struct {
+	PlayerManager struct {
 		component.Base
-		group      *nano.Group       // 广播channel
-		players    map[int64]*Player // 所有的玩家
+		group      *nano.Group       // 全局广播channel session管理
+		players    map[int64]*Player // 玩家列表
 		chKick     chan int64        // 退出队列
 		chReset    chan int64        // 重置队列
 		chRecharge chan RechargeInfo // 充值信息
@@ -27,12 +28,12 @@ type (
 
 	RechargeInfo struct {
 		Uid  int64 // 用户ID
-		Coin int64 // 房卡数量
+		Coin int64 // 金币数量
 	}
 )
 
-func NewManager() *Manager {
-	return &Manager{
+func NewPlayerManager() *PlayerManager {
+	return &PlayerManager{
 		group:      nano.NewGroup("_SYSTEM_MESSAGE_BROADCAST"),
 		players:    map[int64]*Player{},
 		chKick:     make(chan int64, kickResetBacklog),
@@ -41,7 +42,10 @@ func NewManager() *Manager {
 	}
 }
 
-func (m *Manager) AfterInit() {
+//Init，AfterInit， BeforeShutdown，Shutdown
+func (m *PlayerManager) AfterInit() {
+	//session 负责网络接口、uid、id和数据
+	//session关闭时从group中移除
 	session.Lifetime.OnClosed(func(s *session.Session) {
 		m.group.Leave(s)
 	})
@@ -52,7 +56,7 @@ func (m *Manager) AfterInit() {
 		for {
 			select {
 			case uid := <-m.chKick:
-				p, ok := defaultManager.player(uid)
+				p, ok := defaultPlayerManager.player(uid)
 				if !ok || p.session == nil {
 					logger.Errorf("玩家%d不在线", uid)
 				}
@@ -60,7 +64,7 @@ func (m *Manager) AfterInit() {
 				logger.Infof("踢出玩家, UID=%d", uid)
 
 			case uid := <-m.chReset:
-				p, ok := defaultManager.player(uid)
+				p, ok := defaultPlayerManager.player(uid)
 				if !ok {
 					return
 				}
@@ -73,21 +77,22 @@ func (m *Manager) AfterInit() {
 
 			case ri := <-m.chRecharge:
 				player, ok := m.player(ri.Uid)
-				// 如果玩家在线
+				// 如果玩家在线 通知玩家金币变化
 				if s := player.session; ok && s != nil {
 					s.Push("onCoinChange", &protocol.CoinChangeInformation{Coin: ri.Coin})
 				}
 
 			default:
-				break ctrl
+				break ctrl // break 和 continue 配合for 可以做goto类似语法
 			}
 		}
 	})
 }
 
-func (m *Manager) Login(s *session.Session, req *protocol.LoginToGameServerRequest) error {
+//处理登录
+func (m *PlayerManager) Login(s *session.Session, req *protocol.LoginToGameServerRequest) error {
 	uid := req.Uid
-	s.Bind(uid)
+	s.Bind(uid) //session绑定uid
 
 	log.Infof("玩家: %d登录: %+v", uid, req)
 	if p, ok := m.player(uid); !ok {
@@ -105,7 +110,7 @@ func (m *Manager) Login(s *session.Session, req *protocol.LoginToGameServerReque
 			if p, err := playerWithSession(prevSession); err == nil && p != nil && p.desk != nil && p.desk.group != nil {
 				p.desk.group.Leave(prevSession)
 			}
-
+			// 重置uid和data close net
 			prevSession.Clear()
 			prevSession.Close()
 		}
@@ -125,23 +130,24 @@ func (m *Manager) Login(s *session.Session, req *protocol.LoginToGameServerReque
 		FangKa:   req.FangKa,
 	}
 
+	//返回消息给client
 	return s.Response(res)
 }
 
-func (m *Manager) player(uid int64) (*Player, bool) {
+func (m *PlayerManager) player(uid int64) (*Player, bool) {
 	p, ok := m.players[uid]
 
 	return p, ok
 }
 
-func (m *Manager) setPlayer(uid int64, p *Player) {
+func (m *PlayerManager) setPlayer(uid int64, p *Player) {
 	if _, ok := m.players[uid]; ok {
 		log.Warnf("玩家已经存在，正在覆盖玩家， UID=%d", uid)
 	}
 	m.players[uid] = p
 }
 
-func (m *Manager) CheckOrder(s *session.Session, msg *protocol.CheckOrderReqeust) error {
+func (m *PlayerManager) CheckOrder(s *session.Session, msg *protocol.CheckOrderReqeust) error {
 	log.Infof("%+v", msg)
 
 	return s.Response(&protocol.CheckOrderResponse{
@@ -149,11 +155,11 @@ func (m *Manager) CheckOrder(s *session.Session, msg *protocol.CheckOrderReqeust
 	})
 }
 
-func (m *Manager) sessionCount() int {
+func (m *PlayerManager) sessionCount() int {
 	return len(m.players)
 }
 
-func (m *Manager) offline(uid int64) {
+func (m *PlayerManager) offline(uid int64) {
 	delete(m.players, uid)
 	log.Infof("玩家: %d从在线列表中删除, 剩余：%d", uid, len(m.players))
 }

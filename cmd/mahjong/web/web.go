@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,17 +19,19 @@ import (
 
 type Closer func()
 
-var logger = log.WithField("component", "http")
+var logger = log.WithField("component", "http") //设置logger的固定Field key-value形式
 
 func dbStartup() func() {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s",
+	//"%s:%s@tcp(%s:%d)/%s?%s"
+	dsn := db.BuildDBDSN(
 		viper.GetString("database.username"),
 		viper.GetString("database.password"),
 		viper.GetString("database.host"),
-		viper.GetString("database.port"),
+		viper.GetInt("database.port"),
 		viper.GetString("database.dbname"),
 		viper.GetString("database.args"))
 
+	//使用xorm连接mysql
 	return db.MustStartup(
 		dsn,
 		db.MaxIdleConns(viper.GetInt("database.max_idle_conns")),
@@ -39,6 +40,7 @@ func dbStartup() func() {
 }
 
 func enableWhiteList() {
+	//从本地配置读取白名单设置
 	whitelist.Setup(viper.GetStringSlice("whitelist.ip"))
 }
 
@@ -115,6 +117,7 @@ func Startup() {
 	go func() {
 		// http service
 		mux := startupService()
+		//开启监听
 		if enableSSL {
 			log.Fatal(http.ListenAndServeTLS(addr, cert, key, mux))
 		} else {
@@ -122,9 +125,10 @@ func Startup() {
 		}
 	}()
 
+	//监听指定信号
 	sg := make(chan os.Signal)
 	signal.Notify(sg, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL)
-	// stop server
+	//阻塞知道有信号传入sg
 	select {
 	case s := <-sg:
 		log.Infof("got signal: %s", s.String())
