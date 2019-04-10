@@ -38,10 +38,10 @@ type Desk struct {
 
 	die chan struct{}
 
-	gameCtx *dsq.Dsq        //游戏上下文
-	curTurn int             //当前方位 1 2
-	prepare *prepareContext //准备相关状态
-	dice    *dice           //骰子
+	gameCtx *dsq.Dsq              //游戏上下文
+	curTurn int                   //当前方位 1 2
+	prepare *prepareContext       //准备相关状态
+	dice    *dice                 //骰子
 	opts    *protocol.DeskOptions //房间选项
 
 	latestEnter *protocol.PlayerEnterDesk //最新的进入状态
@@ -51,17 +51,17 @@ type Desk struct {
 
 func NewDesk(roomNo RoomNumber, opts *protocol.DeskOptions) *Desk {
 	d := &Desk{
-		group:  nano.NewGroup(uuid.New()),
-		roomNo: roomNo,
-		state:  DeskStatusCreate,
+		group:   nano.NewGroup(uuid.New()),
+		roomNo:  roomNo,
+		state:   DeskStatusCreate,
 		players: []*Player{},
 		die:     make(chan struct{}),
 		gameCtx: dsq.NewDsq(),
-		curTurn： -1
+		curTurn: -1,
 		prepare: newPrepareContext(),
 		dice:    newDice(),
 		logger:  log.WithField(fieldDesk, roomNo),
-		opts: opts,
+		opts:    opts,
 	}
 	return d
 }
@@ -179,7 +179,6 @@ func (d *Desk) title() string {
 	return strings.TrimSpace(fmt.Sprintf("房号: %s", d.roomNo))
 }
 
-
 // 描述, 参数表示是否显示额外选项
 func (d *Desk) desc(detail bool) string {
 	desc := []string{}
@@ -189,9 +188,9 @@ func (d *Desk) desc(detail bool) string {
 		opts := d.opts
 		if opts.Mode == ModeRoom {
 			desc = append(desc, "房间模式")
-		}else{
+		} else {
 			desc = append(desc, "比赛模式")
-		}	
+		}
 	}
 	return strings.Join(desc, " ")
 }
@@ -224,17 +223,15 @@ func (d *Desk) start() {
 		//player.duanPai(info[turn].OnHand)
 	}
 
-	//骰子
+	//摇色子确定红蓝双方
 	d.dice.random()
-	duan := &protocol.DuanPai{
-		MarkerID:    info[d.bankerTurn].Uid, //庄的账号ID
-		Dice1:       d.dice.dice1,
-		Dice2:       d.dice.dice2,
-		AccountInfo: info,
-	}
+	d.dice.dice1
+
+	duan := &protocol.DuanPai{}
 	d.group.Broadcast("onDuanPai", duan)
 }
 
+// 齐牌状态之后开始游戏
 func (d *Desk) qiPaiFinished(uid int64) error {
 	if d.status() > DeskStatusDuanPai {
 		d.logger.Debugf("当前牌桌状态: %s", d.status().String())
@@ -277,6 +274,10 @@ func (d *Desk) isRoundOver() bool {
 	return len(d.wonPlayers) == d.totalPlayerCount()-1
 }
 
+func (d *Desk) currentPlayer() *Player {
+	return d.players[d.curTurn]
+}
+
 // 循环中的核心逻辑
 // 1. 摸牌
 // 2. 打牌
@@ -297,10 +298,8 @@ func (d *Desk) play() {
 MAIN_LOOP:
 	for !d.isRoundOver() {
 		// 切换到下一个玩家
-		if !d.isNewRound {
-			d.nextTurn()
-			curPlayer = d.currentPlayer()
-		}
+		d.nextTurn()
+		curPlayer = d.currentPlayer()
 	}
 
 	if d.status() == DeskStatusDestory {
@@ -313,10 +312,6 @@ MAIN_LOOP:
 	}
 
 	d.roundOver()
-}
-
-func (d *Desk) currentPlayer() *Player {
-	return d.players[d.curTurn]
 }
 
 func (d *Desk) roundOverTilesForPlayer(p *Player) *protocol.HandTilesInfo {
