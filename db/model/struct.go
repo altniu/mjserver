@@ -192,7 +192,7 @@ type Trade struct {
 	ComsumerId    string `xorm:"not null VARCHAR(128) default"`
 	MerchantId    string `xorm:"not null VARCHAR(128) default"`
 	ComsumerEmail string `xorm:"not null VARCHAR(64) default"`
-	Raw           string `xorm:"not null VARCHAR(2048) default"`
+	Raw           string `xorm:"not null VARCHAR(2048) default"` 
 }
 
 type User struct {

@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/lonng/nanoserver/cmd/dsq/db"
+	"github.com/lonng/nanoserver/cmd/dsq/game/constants"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
 	"github.com/lonng/nanoserver/pkg/async"
-	"github.com/lonng/nanoserver/cmd/dsq/game/constants"
 	"github.com/lonng/nanoserver/pkg/errutil"
 	"github.com/lonng/nanoserver/pkg/room"
 
@@ -18,43 +18,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	ApplyDissolve = "申请解散"
-	Offline       = "离线"
-	Waiting       = "等待中"
-
-	fieldDesk   = "desk"
-	fieldPlayer = "player"
-)
-
-const deskOpBacklog = 64
-
-const (
-	errorCode             = -1 //错误码
-	applyDissolveRestTime = 2  //有玩家申请解散
-)
-
-const (
-	deskNotFoundMessage        = "您输入的房间号不存在, 请确认后再次输入"
-	deskPlayerNumEnoughMessage = "您加入的房间已经满人, 请确认房间号后再次确认"
-	versionExpireMessage       = "你当前的游戏版本过老，请更新客户端
-	deskCardNotEnoughMessage   = "金币不足"
-	inRoomPlayerNowMessage     = "你当前正在房间中"
-)
-
 var (
-	deskNotFoundResponse = &protocol.JoinDeskResponse{Code: errutil.YXDeskNotFound, Error: deskNotFoundMessage}
-	deskPlayerNumEnough  = &protocol.JoinDeskResponse{Code: errorCode, Error: deskPlayerNumEnoughMessage}
-	joinVersionExpire    = &protocol.JoinDeskResponse{Code: errorCode, Error: versionExpireMessage}
-	reentryDesk          = &protocol.CreateDeskResponse{Code: 30003, Error: inRoomPlayerNowMessage}
-	createVersionExpire  = &protocol.CreateDeskResponse{Code: 30001, Error: versionExpireMessage}
-	deskCardNotEnough    = &protocol.CreateDeskResponse{Code: 30002, Error: deskCardNotEnoughMessage}
+	deskPlayerNumEnough  = &protocol.JoinDeskResponse{Code: eDeskPlayerNumEnough, Error: deskPlayerNumEnoughMessage}
+	joinVersionExpire    = &protocol.JoinDeskResponse{Code: eJoinVersionExpire, Error: versionExpireMessage}
+	deskNotFoundResponse = &protocol.JoinDeskResponse{Code: eDeskNotFoundResponse, Error: deskNotFoundMessage}
+	reentryDesk          = &protocol.CreateDeskResponse{Code: eReentryDesk, Error: inRoomPlayerNowMessage}
+	createVersionExpire  = &protocol.CreateDeskResponse{Code: eCreateVersionExpire, Error: versionExpireMessage}
+	deskCardNotEnough    = &protocol.CreateDeskResponse{Code: eDeskCardNotEnough, Error: deskCardNotEnoughMessage}
 )
 
 type (
 	DeskManager struct {
 		component.Base
-		desks map[RoomNumber]*Desk // 所有桌子
+		desks map[RoomNumber]*Desk
 	}
 )
 
@@ -68,7 +44,6 @@ func NewDeskManager() *DeskManager {
 
 func (manager *DeskManager) AfterInit() {
 	session.Lifetime.OnClosed(func(s *session.Session) {
-		// Fixed: 玩家WIFI切换到4G网络不断开, 重连时，将UID设置为illegalSessionUid
 		if s.UID() > 0 {
 			if err := manager.onPlayerDisconnect(s); err != nil {
 				logger.Errorf("玩家退出: UID=%d, Error=%s", s.UID, err.Error())
@@ -76,13 +51,11 @@ func (manager *DeskManager) AfterInit() {
 		}
 	})
 
-	// 每5分钟清空一次已摧毁的房间信息
 	nano.NewTimer(300*time.Second, func() {
-		destroyDesk := map[room.Number]*Desk{}
-		deadline := time.Now().Add(-24 * time.Hour).Unix()
+		destroyDesk := map[RoomNumber]*Desk{}
+		deadline := time.Now().Add(0.25 * time.Hour).Unix()
 		for no, d := range manager.desks {
-			// 清除创建超过24小时的房间
-			if d.status() == constant.DeskStatusDestory || d.createdAt < deadline {
+			if d.status() == DeskStatusDestory || d.createdAt < deadline {
 				destroyDesk[no] = d
 			}
 		}
@@ -92,7 +65,7 @@ func (manager *DeskManager) AfterInit() {
 
 		manager.dumpDeskInfo()
 
-		// 统计结果异步写入数据库
+		//统计结果异步写入数据库
 		sCount := defaultPlayerManager.sessionCount()
 		dCount := len(manager.desks)
 		async.Run(func() {
@@ -109,11 +82,11 @@ func (manager *DeskManager) dumpDeskInfo() {
 
 	logger.Infof("剩余房间数量: %d 在线人数: %d  当前时间: %s", c, defaultPlayerManager.sessionCount(), time.Now().Format("2006-01-02 15:04:05"))
 	for no, d := range manager.desks {
-		logger.Debugf("房号: %s, 创建时间: %s, 创建玩家: %d, 状态: %s, 总局数: %d, 当前局数: %d",
-			no, time.Unix(d.createdAt, 0).String(), d.creator, d.status().String())
+		logger.Debugf("房号: %s, 创建时间: %s, 创建玩家: %d, 状态: %s:", no, time.Unix(d.createdAt, 0).String(), d.creator, d.status().String())
 	}
 }
 
+// 玩家网络断开
 func (manager *DeskManager) onPlayerDisconnect(s *session.Session) error {
 	uid := s.UID()
 	p, err := playerWithSession(s)
@@ -182,7 +155,6 @@ func (manager *DeskManager) UnCompleteDesk(s *session.Session, _ []byte) error {
 			Title:     d.title(),
 			Desc:      d.desc(true),
 			Status:    d.status(),
-			Round:     d.round,
 			Mode:      d.opts.Mode,
 		},
 	})
@@ -233,7 +205,7 @@ func (manager *DeskManager) ReConnect(s *session.Session, req *protocol.ReConnec
 
 // 网络断开后, 如果ReConnect后发现当前正在房间中, 则重新进入, 桌号是之前的桌号
 func (manager *DeskManager) ReJoin(s *session.Session, data *protocol.ReJoinDeskRequest) error {
-	d, ok := manager.desk(room.Number(data.DeskNo))
+	d, ok := manager.desk(RoomNumber(data.DeskNo))
 	if !ok || d.isDestroy() {
 		return s.Response(&protocol.ReJoinDeskResponse{
 			Code:  -1,
@@ -268,6 +240,7 @@ func (manager *DeskManager) ReEnter(s *session.Session, msg *protocol.ReEnterDes
 	return d.onPlayerReJoin(s)
 }
 
+// 玩家切换到后台
 func (manager *DeskManager) Pause(s *session.Session, _ []byte) error {
 	uid := s.UID()
 	p, err := playerWithSession(s)
@@ -282,11 +255,11 @@ func (manager *DeskManager) Pause(s *session.Session, _ []byte) error {
 	}
 
 	p.logger.Debug("玩家切换到后台")
-	d.dissolve.updateOnlineStatus(uid, false)
 
 	return nil
 }
 
+// 玩家切换到前台
 func (manager *DeskManager) Resume(s *session.Session, _ []byte) error {
 	uid := s.UID()
 	p, err := playerWithSession(s)
@@ -300,187 +273,17 @@ func (manager *DeskManager) Resume(s *session.Session, _ []byte) error {
 		return nil
 	}
 
-	// 玩家并未暂停
-	if d.dissolve.isOnline(uid) {
-		return nil
-	}
-
 	p.logger.Debug("玩家切换到前台")
-	d.dissolve.updateOnlineStatus(uid, true)
 
 	// 人数不够, 未开局, 或没有人申请解散
-	if len(d.players) < d.totalPlayerCount() || !d.dissolve.isDissolving() {
+	if len(d.players) < d.totalPlayerCount() {
 		return nil
 	}
-
-	// 有玩家切出游戏, 切回来时发现已经有人申请解散, 则刷新最新的解散状态
-	p.logger.Debug("已经有人申请退出了")
-	dissolveStatus := &protocol.DissolveStatusResponse{
-		DissolveStatus: d.collectDissolveStatus(),
-		RestTime:       d.dissolve.restTime,
-	}
-
-	return d.group.Broadcast("onDissolveStatus", dissolveStatus)
-}
-
-
-// 理牌结束
-func (manager *DeskManager) QiPaiFinished(s *session.Session, msg []byte) error {
-	p, err := playerWithSession(s)
-	if err != nil {
-		return err
-	}
-
-	d := p.desk
-	if d == nil {
-		p.logger.Debug("玩家不在房间内")
-		return nil
-	}
-
-	return d.qiPaiFinished(s.UID())
-}
-
-// 定缺
-func (manager *DeskManager) DingQue(s *session.Session, msg *protocol.DingQue) error {
-	p, err := playerWithSession(s)
-	if err != nil {
-		return err
-	}
-
-	que := msg.Que
-	if que < 1 {
-		return fmt.Errorf("玩家定缺麻将不能为0，实际=%d", que)
-	}
-
-	d := p.desk
-	if d == nil {
-		p.logger.Debug("玩家不在房间内")
-		return nil
-	}
-
-	if d.opts.Mode != ModeFours {
-		return ErrModeCannotQue
-	}
-
-	d.dingQue(p, que)
-	return nil
-}
-
-// Exit 处理玩家退出, 客户端会在房间人没有满的情况下发送DeskManager.Exit消息, 如果人满, 或游戏
-// 开始, 客户端则发送DeskManager.Dissolve申请解散
-func (manager *DeskManager) Exit(s *session.Session, msg *protocol.ExitRequest) error {
-	uid := s.UID()
-	p, err := playerWithSession(s)
-	if err != nil {
-		return err
-	}
-	p.logger.Debugf("DeskManager.Exit: %+v", msg)
-	d := p.desk
-	if d == nil || d.isDestroy() {
-		p.logger.Debug("玩家不在房间内")
-		return s.Push("onDissolveSuccess", protocol.EmptyMessage)
-	}
-
-	if d.status() != constant.DeskStatusCreate {
-		p.logger.Debug("房间已经开始，中途不能退出")
-		return nil
-	}
-
-	deskPos := -1
-	for i, p := range d.players {
-		if p.Uid() == uid {
-			deskPos = i
-			if !d.prepare.isReady(uid) {
-				// fixed: 玩家在未准备的状态退出游戏, 不应该直接返回
-				msg := &protocol.ExitResponse{
-					AccountId: uid,
-					IsExit:    true,
-					ExitType:  protocol.ExitTypeExitDeskUI,
-					DeskPos:   deskPos,
-				}
-				if err := s.Push("onDissolve", msg); err != nil {
-					return err
-				}
-			}
-			break
-		}
-	}
-
-	res := &protocol.ExitResponse{
-		AccountId: uid,
-		IsExit:    true,
-		ExitType:  protocol.ExitTypeExitDeskUI,
-		DeskPos:   deskPos,
-	}
-	route := "onPlayerExit"
-	if msg.IsDestroy {
-		route = "onDissolve"
-	}
-	d.group.Broadcast(route, res)
-
-	p.logger.Info("DeskManager.Exit: 退出房间")
-	d.onPlayerExit(s, false)
 
 	return nil
 }
 
-func (manager *DeskManager) OpChoose(s *session.Session, msg *protocol.OpChooseRequest) error {
-	p, err := playerWithSession(s)
-	if err != nil {
-		return err
-	}
-
-	p.logger.Debugf("玩家选择: MSG=%+v", msg)
-	p.chOperation <- &protocol.OpChoosed{
-		Type:   msg.OpType,
-		TileID: msg.Index,
-	}
-	return nil
-}
-
-func (manager *DeskManager) Ready(s *session.Session, _ []byte) error {
-	p, err := playerWithSession(s)
-	if err != nil {
-		return err
-	}
-
-	d := p.desk
-	d.prepare.ready(s.UID())
-	d.syncDeskStatus()
-
-	// 必须在广播消息以后调用checkStart
-	d.checkStart()
-	return err
-}
-
-func (manager *DeskManager) ClientInitCompleted(s *session.Session, msg *protocol.ClientInitCompletedRequest) error {
-	logger.Debug(msg)
-	uid := s.UID()
-	p, err := playerWithSession(s)
-	if err != nil {
-		return err
-	}
-
-	d := p.desk
-	// 客户端准备完成后加入消息广播队列
-	for _, p := range d.players {
-		if p.Uid() == uid {
-			if p.session != s {
-				p.logger.Error("DeskManager.ClientInitCompleted: Session不一致")
-			}
-			p.logger.Info("eskManager.ClientInitCompleted: 玩家加入房间广播列表")
-			d.group.Add(p.session)
-			break
-		}
-	}
-
-	// 如果不是重新进入游戏, 则同步状态到房间所有玩家
-	if !msg.IsReEnter {
-		d.syncDeskStatus()
-	}
-
-	return err
-}
+//---------------------------------------------------------------------------------------------------
 
 //创建一张桌子
 func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.CreateDeskRequest) error {
@@ -488,12 +291,12 @@ func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.Create
 	if err != nil {
 		return err
 	}
-	
+
 	//桌子存在玩家在游戏中
 	if p.desk != nil {
 		return s.Response(reentryDesk)
 	}
-	
+
 	//强制更新
 	if forceUpdate && data.Version != version {
 		return s.Response(createVersionExpire)
@@ -510,23 +313,23 @@ func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.Create
 	if p.coin < int64(count) {
 		return s.Response(deskCardNotEnough)
 	}
-	
+
 	//创建房间
 	no := room.Next()
 	d := NewDesk(no, data.DeskOpts)
 	d.createdAt = time.Now().Unix()
 	d.creator = s.UID()
 	d.gameCtx.Init()
-	
+
 	//房间创建者自动join
 	if err := d.playerJoin(s, false); err != nil {
 		return nil
 	}
 
-	// save desk information
-	manager.desks[no] = d
+	manager.desks[no] = d // save desk information
 
 	resp := &protocol.CreateDeskResponse{
+		Code: SUC,
 		TableInfo: protocol.TableInfo{
 			DeskNo:    string(no),
 			CreatedAt: d.createdAt,
@@ -547,7 +350,7 @@ func (manager *DeskManager) Join(s *session.Session, data *protocol.JoinDeskRequ
 		return s.Response(joinVersionExpire)
 	}
 
-	dn := room.Number(data.DeskNo)
+	dn := RoomNumber(data.DeskNo)
 	d, ok := manager.desk(dn)
 	if !ok {
 		return s.Response(deskNotFoundResponse)
@@ -557,22 +360,12 @@ func (manager *DeskManager) Join(s *session.Session, data *protocol.JoinDeskRequ
 		return s.Response(deskPlayerNumEnough)
 	}
 
-	// 如果是俱乐部房间，则判断玩家是否是俱乐部玩家
-	// 否则直接加入房间
-	if d.clubId > 0 {
-		if db.IsClubMember(d.clubId, s.UID()) == false {
-			return s.Response(&protocol.JoinDeskResponse{
-				Code:  errorCode,
-				Error: fmt.Sprintf("当前房间是俱乐部[%d]专属房间，俱乐部成员才可加入", d.clubId),
-			})
-		}
-	}
-
 	if err := d.playerJoin(s, false); err != nil {
 		d.logger.Errorf("玩家加入房间失败，UID=%d, Error=%s", s.UID(), err.Error())
 	}
 
 	return s.Response(&protocol.JoinDeskResponse{
+		Code: SUC,
 		TableInfo: protocol.TableInfo{
 			DeskNo:    d.roomNo.String(),
 			CreatedAt: d.createdAt,
@@ -580,14 +373,72 @@ func (manager *DeskManager) Join(s *session.Session, data *protocol.JoinDeskRequ
 			Title:     d.title(),
 			Desc:      d.desc(true),
 			Status:    d.status(),
-			Round:     d.round,
 			Mode:      d.opts.Mode,
 		},
 	})
 }
 
-// 有玩家请求解散房间
-func (manager *DeskManager) Dissolve(s *session.Session, msg []byte) error {
+// Exit 处理玩家退出, 客户端会在房间人没有满的情况下可以退出解散房间，一旦加入房间就不能手动离开
+func (manager *DeskManager) Exit(s *session.Session, msg *protocol.ExitRequest) error {
+	uid := s.UID()
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+	p.logger.Debugf("DeskManager.Exit: %+v", msg)
+	d := p.desk
+	if d == nil || d.isDestroy() {
+		p.logger.Debug("玩家不在房间内")
+		s.Response(&protocol.ExitResponse{Code: ePlayerNotInDesk})
+		return nil
+	}
+
+	if d.status() != DeskStatusCreate {
+		p.logger.Debug("房间已经开始，中途不能退出")
+		s.Response(&protocol.ExitResponse{Code: FAIL})
+		return nil
+	}
+
+	s.Response(&protocol.ExitResponse{Code: SUC})
+	d.onPlayerExit(s, false)
+
+	return nil
+}
+
+// 玩家准备
+func (manager *DeskManager) Ready(s *session.Session, _ []byte) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+
+	d := p.desk
+	d.prepare.ready(s.UID())
+	d.syncDeskStatus()
+
+	// 必须在广播消息以后调用checkStart
+	d.checkStart()
+	return err
+}
+
+// 理牌结束
+func (manager *DeskManager) QiPaiFinished(s *session.Session, msg []byte) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+
+	d := p.desk
+	if d == nil {
+		p.logger.Debug("玩家不在房间内")
+		return nil
+	}
+
+	return d.qiPaiFinished(s.UID())
+}
+
+// 投降
+func (manager *DeskManager) GiveUp(s *session.Session, msg *protocol.GiveupRequest) error {
 	p, err := playerWithSession(s)
 	if err != nil {
 		return err
@@ -595,11 +446,75 @@ func (manager *DeskManager) Dissolve(s *session.Session, msg []byte) error {
 
 	d := p.desk
 	if d == nil || d.isDestroy() {
-		logger.Infof("玩家: %d申请解散，但是房间为空或者已解散", s.UID())
-		return s.Push("onDissolveSuccess", protocol.EmptyMessage)
+		logger.Infof("玩家: %d申请投降，但是房间为空或者已解散", s.UID())
+		return nil
 	}
 
-	d.applyDissolve(s.UID())
+	d.onGiveUp(s * session.Session)
 
 	return nil
+}
+
+// 翻牌
+func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PieceOpenRequest) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+
+	d := p.desk
+	if d == nil || d.isDestroy() {
+		logger.Infof("牌桌已经解散")
+		return nil
+	}
+
+	return d.onOpenPiece(s*session.Session, msg.Index)
+}
+
+// 移动
+func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PieceMoveRequest) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+
+	d := p.desk
+	if d == nil || d.isDestroy() {
+		logger.Infof("牌桌已经解散")
+		return nil
+	}
+
+	return d.onMovePiece(s*session.Session, msg)
+}
+
+// 吃牌
+func (manager *DeskManager) onEatPiece(s *session.Session, msg *protocol.PieceEatRequest) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+
+	d := p.desk
+	if d == nil || d.isDestroy() {
+		logger.Infof("牌桌已经解散")
+		return nil
+	}
+
+	return d.onEatPiece(s*session.Session, msg)
+}
+
+// 表情
+func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PlayEjoyReq) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		return err
+	}
+
+	d := p.desk
+	if d == nil || d.isDestroy() {
+		logger.Infof("牌桌已经解散")
+		return nil
+	}
+
+	return d.onShowEnjoy(s*session.Session, msg)
 }

@@ -146,14 +146,6 @@ func (m *PlayerManager) setPlayer(uid int64, p *Player) {
 	m.players[uid] = p
 }
 
-func (m *PlayerManager) CheckOrder(s *session.Session, msg *protocol.CheckOrderReqeust) error {
-	log.Infof("%+v", msg)
-
-	return s.Response(&protocol.CheckOrderResponse{
-		FangKa: 20,
-	})
-}
-
 func (m *PlayerManager) sessionCount() int {
 	return len(m.players)
 }
@@ -161,4 +153,12 @@ func (m *PlayerManager) sessionCount() int {
 func (m *PlayerManager) offline(uid int64) {
 	delete(m.players, uid)
 	log.Infof("玩家: %d从在线列表中删除, 剩余：%d", uid, len(m.players))
+}
+
+func (m *PlayerManager) CheckOrder(s *session.Session, msg *protocol.CheckOrderReqeust) error {
+	log.Infof("%+v", msg)
+
+	return s.Response(&protocol.CheckOrderResponse{
+		FangKa: 20,
+	})
 }

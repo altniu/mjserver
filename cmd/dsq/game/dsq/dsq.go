@@ -63,9 +63,28 @@ func (self *Dsq) DumpCurrent() string {
 	return ret
 }
 
+//获得翻开棋子的值
+func (self *Dsq) GetOpen(index int) int {
+	if index >= chessCount || index < 0 {
+		fmt.Println("open index error", index)
+		return 0
+	}
+	piece := self.Origin[index]
+	return piece
+}
+
+//获得棋子的值
+func (self *Dsq) Get(index int) int {
+	if index >= chessCount || index < 0 {
+		fmt.Println("open index error", index)
+		return 0
+	}
+	return self.Current[index]
+}
+
 //翻牌
 func (self *Dsq) Open(index int) int {
-	if index >= chessCount {
+	if index >= chessCount || index < 0 {
 		fmt.Println("open index error", index)
 		return 0
 	}
@@ -90,7 +109,7 @@ func (self *Dsq) Move(indexSrc int, indexDest int) bool {
 		return false
 	}
 
-	if self.isLegalPiece(indexSrc) == false {
+	if self.IsLegalPiece(indexSrc) == false {
 		return false
 	}
 
@@ -107,16 +126,16 @@ func (self *Dsq) Eat(indexSrc int, indexDest int) int {
 		return 0
 	}
 
-	if self.isLegalPiece(indexSrc) == false {
+	if self.IsLegalPiece(indexSrc) == false {
 		return 0
 	}
 
-	if self.isLegalPiece(indexDest) == false {
+	if self.IsLegalPiece(indexDest) == false {
 		return 0
 	}
 
-	myself := self.getCamp(indexSrc)
-	enemy := self.getCamp(indexDest)
+	myself := self.GetCamp(indexSrc)
+	enemy := self.GetCamp(indexDest)
 	if myself == enemy {
 		return 0
 	}
@@ -191,7 +210,7 @@ func (self *Dsq) isLess(srcPiece int, destPiece int) bool {
 }
 
 // 是否合法棋子
-func (self *Dsq) isLegalPiece(index int) bool {
+func (self *Dsq) IsLegalPiece(index int) bool {
 	if index >= chessCount {
 		return false
 	}
@@ -205,7 +224,7 @@ func (self *Dsq) isLegalPiece(index int) bool {
 }
 
 // 获取阵营
-func (self *Dsq) getCamp(index int) int {
+func (self *Dsq) GetCamp(index int) int {
 	piece := self.Current[index]
 	if piece <= 8 {
 		return 1

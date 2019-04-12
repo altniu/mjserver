@@ -72,27 +72,6 @@ type DestoryDeskRequest struct {
 	DeskNo string `json:"deskId"`
 }
 
-//选择执行的动作
-type OpChoosed struct {
-	Type   int
-	TileID int
-}
-
-type MingAction struct {
-	KouIndexs []int `json:"kou"` //index
-	ChuPaiID  int   `json:"chu"`
-	HuIndexs  []int `json:"hu"`
-}
-
-type OpChooseRequest struct {
-	OpType int `json:"optype"`
-	Index  int `json:"idx"`
-}
-
-type ChooseOneScoreRequest struct {
-	Pos int `json:"pos"`
-}
-
 type CheckOrderReqeust struct {
 	OrderID string `json:"orderid"`
 }
@@ -102,46 +81,6 @@ type CheckOrderResponse struct {
 	Error  string `json:"error"`
 	FangKa int    `json:"fangka"`
 }
-type FanPaiRequest struct {
-	Pos        int  `json:"pos"`
-	IsUseCoin  bool `json:"isUseCoin"`
-	IsMultiple bool `json:"isMultiple"`
-	OpType     int  `json:"opType"`
-}
-
-type DissolveStatusItem struct {
-	DeskPos int    `json:"deskPos"`
-	Status  string `json:"status"`
-}
-
-type DissolveResponse struct {
-	DissolveUid    int64                `json:"dissolveUid"`
-	DissolveStatus []DissolveStatusItem `json:"dissolveStatus"`
-	RestTime       int32                `json:"restTime"`
-}
-
-type DissolveStatusRequest struct {
-	Result bool `json:"result"`
-}
-
-type DissolveStatusResponse struct {
-	DissolveStatus []DissolveStatusItem `json:"dissolveStatus"`
-	RestTime       int32                `json:"restTime"`
-}
-
-type DissolveResult struct {
-	DeskPos int `json:"deskPos"`
-}
-
-type CalcLastTingRequest struct {
-	KouIndexs  []int `json:"kou"`
-	TingIndexs []int `json:"ting"`
-}
-
-type CalcLastTingResponse struct {
-	ForbidIndexs []int `json:"forbid"`
-	Tings        Tings `json:"tings"`
-}
 
 type PlayerOfflineStatus struct {
 	Uid     int64 `json:"uid"`
@@ -150,4 +89,83 @@ type PlayerOfflineStatus struct {
 
 type CoinChangeInformation struct {
 	Coin int64 `json:"coin"`
+}
+
+type OpChoosed struct {
+	Type int `json:"type"`
+}
+
+//翻牌
+type PieceOpenRequest struct {
+	Index int `json:"index"`
+}
+
+type PieceOpenResponse struct {
+	Code  int `json:"code"`
+	Index int `json:"index"`
+	Piece int `json:"piece"`
+}
+
+type PieceOpenNotify struct {
+	Uid   int64 `json:"uid"`
+	Index int   `json:"index"`
+	Piece int   `json:"piece"`
+}
+
+//吃牌
+type PieceEatRequest struct {
+	IndexSrc  int `json:"indexSrc"`
+	IndexDest int `json:"indexDest"`
+}
+
+type PieceEatResponse struct {
+	Code   int   `json:"code"`
+	Pieces []int `json:"pieces"`
+}
+
+type PieceEatNotify struct {
+	Uid       int64 `json:"uid"`
+	Code      int   `json:"code"`
+	IndexSrc  int   `json:"indexSrc"`
+	IndexDest int   `json:"indexDest"`
+}
+
+//移动
+type PieceMoveRequest struct {
+	IndexSrc  int `json:"indexSrc"`
+	IndexDest int `json:"indexDest"`
+}
+
+type PieceMoveResponse struct {
+	Code   int   `json:"code"`
+	Pieces []int `json:"pieces"`
+}
+
+type PieceMoveNotify struct {
+	Uid       int64 `json:"uid"`
+	IndexSrc  int   `json:"indexSrc"`
+	IndexDest int   `json:"indexDest"`
+}
+
+//投降
+type GiveupRequest struct {
+	DeskNo string `json:"deskId"`
+}
+
+// 游戏结算
+type GameResult struct {
+	Uid    int64 `json:"uid"`
+	Coin   int64 `json:"coin"`
+	Giveup int64 `json:"giveup"`
+}
+
+//表情
+type PlayEjoyReq struct {
+	Index int `json:"index"`
+}
+
+//表情
+type PlayEjoyNotify struct {
+	Uid   int64 `json:"uid"`
+	Index int   `json:"index"`
 }

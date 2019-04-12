@@ -66,8 +66,8 @@ func Startup() {
 	logger.Info("game service starup")
 
 	// register game handler 注册组件
-	nano.Register(defaultPlayerManager)
-	nano.Register(defaultDeskManager)
+	nano.Register(defaultPlayerManager, component.WithName("gate"), component.WithNameFunc(strings.ToLower))
+	nano.Register(defaultDeskManager, component.WithName("game"), component.WithNameFunc(strings.ToLower))
 
 	// 加密管道
 	c := newCrypto()

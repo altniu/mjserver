@@ -34,7 +34,7 @@ func requireCardCount(round int) int {
 }
 
 func playerWithSession(s *session.Session) (*Player, error) {
-	p, ok := s.Value(kCurPlayer).(*Player)
+	p, ok := s.Value(fieldPlayer).(*Player)
 	if !ok {
 		return nil, errutil.ErrPlayerNotFound
 	}
