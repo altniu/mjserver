@@ -124,6 +124,7 @@ type DuanPai struct {
 }
 
 type RoundInfo struct {
-	Uid  int64 `json:"uid"`  //提示的玩家
-	Camp int64 `json:"camp"` //当前出牌的阵营
+	Uid       int64 `json:"uid"`       //提示的玩家
+	Camp      int64 `json:"camp"`      //当前出牌的阵营
+	TimeStamp int64 `json:"timestamp"` //提示的时间戳
 }

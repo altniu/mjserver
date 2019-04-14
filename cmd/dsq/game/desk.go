@@ -90,9 +90,9 @@ func (d *Desk) desc(detail bool) string {
 }
 
 func (d *Desk) nextTurn() {
-	d.curCamp++
 	d.curCamp = d.curCamp % d.totalPlayerCount() + 1
 }
+
 
 func (d *Desk) currentPlayer() *Player {
 	return d.players[d.curCamp - 1]
@@ -300,6 +300,7 @@ MAIN_LOOP:
 		case <-time.After(30 * time.Second):
 			//当前玩家超时世界失败
 			bTimeOut = true
+			campWin = curPlayer.camp % d.totalPlayerCount() + 1
 			d.setStatus(DeskStatusInterruption)
 			break MAIN_LOOP
 		}
@@ -326,7 +327,7 @@ MAIN_LOOP:
 	}
 
 	
-	d.roundOver()
+	d.roundOver(campWin, false, bTimeOut)
 }
 
 func (d *Desk) setStatus(s DeskStatus) {
@@ -349,57 +350,38 @@ func (d *Desk) clean() {
 
 //提示玩家操作
 func (d *Desk) hint(p *Player) {
-	hint := &protocol.RoundInfo{Uid: p.Uid(), Camp: p.camp}
+	hint := &protocol.RoundInfo{Uid: p.Uid(), Camp: p.camp，TimeStamp: time.Now().Unix()}
 	desk.lastHintUid = p.Uid()
 	d.logger.Debugf("玩家最后提示: Hint=%+v", hint)
 	d.group.Broadcast(("onHintPlayer", hint)
 }
 
-func (d *Desk) roundOver(winner int64) {
-	status := d.status()
-	d.finalSettlement(stats)
+//赢家 0:平局 1:A 阵营 2:B阵营 放弃 超时
+func (d *Desk) roundOver(winCamp, bGiveup bool, bTimeOut bool) {
+	uid := 0
+	if winCamp != 0 {
+		uid = d.players[winCamp - 1].Uid()
+	}
+	msg := &protocol.GameResult{Winner: uid, Coin: 10, Camp: winCamp, Giveup: bGiveup, TimeOut: bTimeOut}
+	d.gameResult(msg)
 }
 
 // 结算
-func (d *Desk) finalSettlement(isNormalFinished bool, ge *protocol.RoundOverStats) {
-	d.logger.Debugf("本场游戏结束, 最后一局结算数据: %#v", ge)
-	
-	status := d.status()
-	
+func (d *Desk) gameResult(msg *protocol.GameResult) {
+	d.logger.Debugf("本场游戏结束结算数据: %#v", msg)
+		
 	//发送单场统计
-	err := d.group.Broadcast("onGameEnd", ddr)
+	err := d.group.Broadcast("onGameEnd", msg)
 	if err != nil {
 		log.Error(err)
-	}
-
-	//桌子解散,更新桌面信息
-	desk := &model.Desk{
-		Id:      d.deskID,
-		Creator: d.creator,
-		DeskNo:  d.roomNo.String(),
-	}
-
-	for i := range d.players {
-		p := d.players[i]
-		uid := p.Uid()
-		score := 0
-		if r, ok := stats[uid]; ok {
-			score = r.TotalScore
-		}
-		switch i {
-		case 0:
-			desk.Player0, desk.ScoreChange0, desk.PlayerName0 = uid, score, p.name
-		case 1:
-			desk.Player1, desk.ScoreChange1, desk.PlayerName1 = uid, score, p.name
-		}
 	}
 
 	d.destroy()
 
 	async.Run(func() {
-		if err = db.UpdateDesk(desk); err != nil {
-			log.Error(err)
-		}
+		//if err = db.UpdateDesk(desk); err != nil {
+			//log.Error(err)
+		//}
 	})
 }
 

@@ -154,9 +154,11 @@ type GiveupRequest struct {
 
 // 游戏结算
 type GameResult struct {
-	Uid    int64 `json:"uid"`
-	Coin   int64 `json:"coin"`
-	Giveup int64 `json:"giveup"`
+	Winner  int64 `json:"winner"`
+	Coin    int64 `json:"coin"`
+	Camp    int   `json:"camp"` // 0 平局 1  2
+	Giveup  bool  `json:"giveup"`
+	TimeOut bool  `json:"timeOut"`
 }
 
 //表情
