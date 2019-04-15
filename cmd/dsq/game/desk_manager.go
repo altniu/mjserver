@@ -1,12 +1,10 @@
 package game
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/lonng/nanoserver/cmd/dsq/db"
-	"github.com/lonng/nanoserver/cmd/dsq/game/constants"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
 	"github.com/lonng/nanoserver/pkg/async"
 	"github.com/lonng/nanoserver/pkg/errutil"
@@ -15,7 +13,6 @@ import (
 	"github.com/lonng/nano"
 	"github.com/lonng/nano/component"
 	"github.com/lonng/nano/session"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -53,7 +50,7 @@ func (manager *DeskManager) AfterInit() {
 
 	nano.NewTimer(300*time.Second, func() {
 		destroyDesk := map[RoomNumber]*Desk{}
-		deadline := time.Now().Add(0.25 * time.Hour).Unix()
+		deadline := time.Now().Add(30 * time.Minute).Unix()
 		for no, d := range manager.desks {
 			if d.status() == DeskStatusDestory || d.createdAt < deadline {
 				destroyDesk[no] = d
@@ -82,7 +79,7 @@ func (manager *DeskManager) dumpDeskInfo() {
 
 	logger.Infof("剩余房间数量: %d 在线人数: %d  当前时间: %s", c, defaultPlayerManager.sessionCount(), time.Now().Format("2006-01-02 15:04:05"))
 	for no, d := range manager.desks {
-		logger.Debugf("房号: %s, 创建时间: %s, 创建玩家: %d, 状态: %s:", no, time.Unix(d.createdAt, 0).String(), d.creator, d.status().String())
+		logger.Debugf("房号: %s, 创建时间: %s, 创建玩家: %d, 状态: %d:", no, time.Unix(d.createdAt, 0).String(), d.creator, d.status())
 	}
 }
 
@@ -242,7 +239,6 @@ func (manager *DeskManager) ReEnter(s *session.Session, msg *protocol.ReEnterDes
 
 // 玩家切换到后台
 func (manager *DeskManager) Pause(s *session.Session, _ []byte) error {
-	uid := s.UID()
 	p, err := playerWithSession(s)
 	if err != nil {
 		return err
@@ -261,7 +257,6 @@ func (manager *DeskManager) Pause(s *session.Session, _ []byte) error {
 
 // 玩家切换到前台
 func (manager *DeskManager) Resume(s *session.Session, _ []byte) error {
-	uid := s.UID()
 	p, err := playerWithSession(s)
 	if err != nil {
 		return err
@@ -316,7 +311,7 @@ func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.Create
 
 	//创建房间
 	no := room.Next()
-	d := NewDesk(no, data.DeskOpts)
+	d := NewDesk(RoomNumber(no), data.DeskOpts)
 	d.createdAt = time.Now().Unix()
 	d.creator = s.UID()
 	d.gameCtx.Init()
@@ -326,7 +321,7 @@ func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.Create
 		return nil
 	}
 
-	manager.desks[no] = d // save desk information
+	manager.desks[d.roomNo] = d // save desk information
 
 	resp := &protocol.CreateDeskResponse{
 		Code: SUC,
@@ -367,7 +362,7 @@ func (manager *DeskManager) Join(s *session.Session, data *protocol.JoinDeskRequ
 	return s.Response(&protocol.JoinDeskResponse{
 		Code: SUC,
 		TableInfo: protocol.TableInfo{
-			DeskNo:    d.roomNo.String(),
+			DeskNo:    string(d.roomNo),
 			CreatedAt: d.createdAt,
 			Creator:   d.creator,
 			Title:     d.title(),
@@ -380,10 +375,9 @@ func (manager *DeskManager) Join(s *session.Session, data *protocol.JoinDeskRequ
 
 // Exit 处理玩家退出, 客户端会在房间人没有满的情况下可以退出解散房间，一旦加入房间就不能手动离开
 func (manager *DeskManager) Exit(s *session.Session, msg *protocol.ExitRequest) error {
-	uid := s.UID()
 	p, err := playerWithSession(s)
 	if err != nil {
-		return err
+		return nil
 	}
 	p.logger.Debugf("DeskManager.Exit: %+v", msg)
 	d := p.desk
@@ -450,7 +444,7 @@ func (manager *DeskManager) GiveUp(s *session.Session, msg *protocol.GiveupReque
 		return nil
 	}
 
-	d.onGiveUp(s * session.Session)
+	d.onGiveUp(s)
 
 	return nil
 }
@@ -468,14 +462,14 @@ func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PieceOpe
 		return nil
 	}
 
-	return d.onOpenPiece(s*session.Session, msg.Index)
+	return d.onOpenPiece(s, msg.Index)
 }
 
 // 移动
-func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PieceMoveRequest) error {
+func (manager *DeskManager) MovePiece(s *session.Session, msg *protocol.PieceMoveRequest) error {
 	p, err := playerWithSession(s)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	d := p.desk
@@ -484,11 +478,11 @@ func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PieceMov
 		return nil
 	}
 
-	return d.onMovePiece(s*session.Session, msg)
+	return d.onMovePiece(s, msg)
 }
 
 // 吃牌
-func (manager *DeskManager) onEatPiece(s *session.Session, msg *protocol.PieceEatRequest) error {
+func (manager *DeskManager) EatPiece(s *session.Session, msg *protocol.PieceEatRequest) error {
 	p, err := playerWithSession(s)
 	if err != nil {
 		return err
@@ -500,14 +494,14 @@ func (manager *DeskManager) onEatPiece(s *session.Session, msg *protocol.PieceEa
 		return nil
 	}
 
-	return d.onEatPiece(s*session.Session, msg)
+	return d.onEatPiece(s, msg)
 }
 
 // 表情
-func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PlayEjoyReq) error {
+func (manager *DeskManager) ShowEnjoy(s *session.Session, msg *protocol.PlayEjoyReq) error {
 	p, err := playerWithSession(s)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	d := p.desk
@@ -516,5 +510,5 @@ func (manager *DeskManager) OpenPiece(s *session.Session, msg *protocol.PlayEjoy
 		return nil
 	}
 
-	return d.onShowEnjoy(s*session.Session, msg)
+	return d.onShowEnjoy(s, msg)
 }

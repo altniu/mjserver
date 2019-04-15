@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/lonng/nanoserver/cmd/dsq/db/model"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
-	"github.com/lonng/nanoserver/db/model"
 	"github.com/lonng/nanoserver/pkg/errutil"
 )
 
@@ -245,7 +245,7 @@ func QueryUserInfo(id int64) (*protocol.UserStatsInfo, error) {
 	database.Get(ta)
 
 	//总对局数
-	match, _ := database.Where("player0 =? OR player1 =? OR player2 = ?",
+	match, _ := database.Where("player0 =? OR player1 =?",
 		id, id, id).Count(model.Desk{})
 
 	usi := &protocol.UserStatsInfo{
@@ -286,7 +286,7 @@ func QueryUserInfo(id int64) (*protocol.UserStatsInfo, error) {
 
 		//参与过的房号
 		desks := []model.Desk{}
-		database.Where("(player0 =? OR player1 =? OR player2 = ? ) AND created_at BETWEEN ? AND ?",
+		database.Where("(player0 =? OR player1 =?) AND created_at BETWEEN ? AND ?",
 			id, id, id,
 			begin, end,
 		).Find(&desks)
@@ -295,33 +295,17 @@ func QueryUserInfo(id int64) (*protocol.UserStatsInfo, error) {
 		wins := 0
 
 		//战绩
-		score := 0
 		for _, d := range desks {
 
 			if d.Player0 == id {
-				if d.ScoreChange0 > 0 {
-					wins++
-				}
-				score += d.ScoreChange0
 
 			}
 			if d.Player1 == id {
-				if d.ScoreChange0 > 0 {
-					wins++
-				}
-				score += d.ScoreChange1
-			}
-			if d.Player2 == id {
-				if d.ScoreChange0 > 0 {
-					wins++
-				}
-				score += d.ScoreChange2
-			}
 
+			}
 			ret.DeskNos = append(ret.DeskNos, d.DeskNo)
 
 		}
-		ret.Score = score
 		ret.Win = wins
 
 		return ret

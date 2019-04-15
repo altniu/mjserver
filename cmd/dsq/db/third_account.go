@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/lonng/nanoserver/db/model"
+	"github.com/lonng/nanoserver/cmd/dsq/db/model"
 	"github.com/lonng/nanoserver/pkg/errutil"
 )
 

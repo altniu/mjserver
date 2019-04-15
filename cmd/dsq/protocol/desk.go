@@ -1,9 +1,5 @@
 package protocol
 
-import (
-	"github.com/lonng/nanoserver/pkg/constant"
-)
-
 type EnterDeskInfo struct {
 	DeskPos  int    `json:"deskPos"`
 	Uid      int64  `json:"acId"`
@@ -40,8 +36,8 @@ type DeskPlayerData struct {
 }
 
 type SyncDesk struct {
-	Status  constant.DeskStatus `json:"status"` //1,2,3,4,5
-	Players []DeskPlayerData    `json:"players"`
+	Status  int32            `json:"status"` //1,2,3,4,5
+	Players []DeskPlayerData `json:"players"`
 }
 
 type DeskOptions struct {
@@ -125,6 +121,6 @@ type DuanPai struct {
 
 type RoundInfo struct {
 	Uid       int64 `json:"uid"`       //提示的玩家
-	Camp      int64 `json:"camp"`      //当前出牌的阵营
+	Camp      int   `json:"camp"`      //当前出牌的阵营
 	TimeStamp int64 `json:"timestamp"` //提示的时间戳
 }

@@ -67,7 +67,6 @@ type LoginResponse struct {
 	PlayerIP string       `json:"playerIp"`
 	Config   ClientConfig `json:"config"`
 	Messages []string     `json:"messages"`
-	ClubList []ClubItem   `json:"clubList"`
 	Debug    int          `json:"debug"`
 }
 

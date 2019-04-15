@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/lonng/nanoserver/db/model"
+	"github.com/lonng/nanoserver/cmd/dsq/db/model"
 	"github.com/lonng/nanoserver/pkg/errutil"
 )
 
@@ -17,16 +17,10 @@ func InsertDesk(h *model.Desk) error {
 }
 
 func UpdateDesk(d *model.Desk) error {
-	_, err := database.Exec("UPDATE `desk` SET `score_change0` = ?, `score_change1` = ?, `score_change2` = ?, `score_change3` = ?, `round` = ?  WHERE `id`= ? ",
-		d.ScoreChange0,
-		d.ScoreChange1,
-		d.ScoreChange2,
-		d.ScoreChange3,
-		d.Round,
-		d.Id)
-	if err != nil {
-		return err
-	}
+	//_, err := database.Exec("UPDATE `desk` SET  WHERE `id`= ? ", d.Id)
+	//if err != nil {
+	//return err
+	//}
 	return nil
 }
 
@@ -65,7 +59,7 @@ func DeskList(player int64) ([]model.Desk, int, error) {
 		limit = 15
 	)
 	result := make([]model.Desk, 0)
-	err := database.Where("(player0 = ? OR player1 = ? OR player2 = ? OR player3 = ? ) AND round > 0",
+	err := database.Where("(player0 = ? OR player1 = ?)",
 		player, player, player, player).Desc("created_at").Limit(limit, 0).Find(&result)
 
 	if err != nil {

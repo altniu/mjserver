@@ -1,10 +1,8 @@
 package game
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
-	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -17,25 +15,24 @@ import (
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
 	"github.com/lonng/nanoserver/pkg/async"
 	"github.com/lonng/nanoserver/pkg/errutil"
-	"github.com/lonng/nanoserver/pkg/room"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
 type Desk struct {
-	group     *nano.Group // 组播通道
-	roomNo    RoomNumber  // 房间号
-	deskID    int64       // desk表的pk
-	state     DeskStatus  // 状态
-	creator   int64       // 创建玩家UID
-	createdAt int64       // 创建时间
-	players   []*Player   // 所有玩家
-	lastHintUid int64     // 最后一次提示的玩家
-	die       chan struct{}
-	curCamp   int                     //当前方位 1 2 红蓝
-	gameCtx     *dsq.Dsq              //游戏上下文
-	prepare     *prepareContext       //准备相关状态
-	opts        *protocol.DeskOptions //房间选项
+	group       *nano.Group // 组播通道
+	roomNo      RoomNumber  // 房间号
+	deskID      int64       // desk表的pk
+	state       int32       // 状态
+	creator     int64       // 创建玩家UID
+	createdAt   int64       // 创建时间
+	players     []*Player   // 所有玩家
+	lastHintUid int64       // 最后一次提示的玩家
+	die         chan struct{}
+	curCamp     int                       //当前方位 1 2 红蓝
+	gameCtx     *dsq.Dsq                  //游戏上下文
+	prepare     *prepareContext           //准备相关状态
+	opts        *protocol.DeskOptions     //房间选项
 	latestEnter *protocol.PlayerEnterDesk //最新的进入状态
 	logger      *log.Entry
 }
@@ -50,7 +47,6 @@ func NewDesk(roomNo RoomNumber, opts *protocol.DeskOptions) *Desk {
 		gameCtx: dsq.NewDsq(),
 		curCamp: 0,
 		prepare: newPrepareContext(),
-		dice:    newDice(),
 		logger:  log.WithField(fieldDesk, roomNo),
 		opts:    opts,
 	}
@@ -90,12 +86,11 @@ func (d *Desk) desc(detail bool) string {
 }
 
 func (d *Desk) nextTurn() {
-	d.curCamp = d.curCamp % d.totalPlayerCount() + 1
+	d.curCamp = d.curCamp%d.totalPlayerCount() + 1
 }
 
-
 func (d *Desk) currentPlayer() *Player {
-	return d.players[d.curCamp - 1]
+	return d.players[d.curCamp-1]
 }
 
 //持续化Desk
@@ -112,17 +107,17 @@ func (d *Desk) save() error {
 	}
 	d.logger.Infof("保存房间数据, 创建时间: %d", desk.CreatedAt)
 
-	var onDBResult = func(desk *Desk) {
+	var onDBResult = func(desk *model.Desk) {
 		d.deskID = desk.Id
-    }
-    
-    go func() {
-		if err = db.UpdateDesk(desk); err == nil {
-		    nano.Invoke(func(){ onDBResult(desk) })	
-		}else{
+	}
+
+	go func() {
+		if err := db.UpdateDesk(desk); err == nil {
+			nano.Invoke(func() { onDBResult(desk) })
+		} else {
 			log.Error(err)
 		}
-    }
+	}()
 	return nil
 }
 
@@ -138,7 +133,6 @@ func (d *Desk) syncDeskStatus() {
 			Sex:      p.sex,
 			IsExit:   false,
 			HeadUrl:  p.head,
-			Score:    p.score,
 			IP:       p.ip,
 		})
 	}
@@ -172,7 +166,7 @@ func (d *Desk) playerJoin(s *session.Session, isReJoin bool) error {
 		if !exists {
 			p = s.Value(fieldPlayer).(*Player)
 			d.players = append(d.players, p)
-			for i, p := range d.players {
+			for _, p := range d.players {
 				p.setDesk(d)
 			}
 		}
@@ -184,7 +178,7 @@ func (d *Desk) playerJoin(s *session.Session, isReJoin bool) error {
 func (d *Desk) checkStart() {
 	s := d.status()
 	if (s != DeskStatusCreate) && (s != DeskStatusCleaned) {
-		d.logger.Infof("当前房间状态不对，不能开始游戏，当前状态=%s", s.String())
+		d.logger.Infof("当前房间状态不对，不能开始游戏，当前状态=%s", stringify[s])
 		return
 	}
 
@@ -204,27 +198,27 @@ func (d *Desk) checkStart() {
 
 // 牌桌开始, 此方法只在开桌时执行
 func (d *Desk) start() {
-	d.setStatus(DeskStatusDuanPai) //发牌
+	d.setStatus(DeskStatusDuanPai)              //发牌
 	var totalPlayerCount = d.totalPlayerCount() // 玩家数量
 
 	//随机出0、1 0则第一个玩家是红方 1则第二个玩家是红方 红方先开始
 	d.curCamp = rand.Intn(totalPlayerCount)
-	
+
 	if d.curCamp == 1 {
 		d.players[0].camp = 1 //红方
-		d.players[1].camp = 2	
-	}else{
-		d.players[0].camp = 2 
-		d.players[1].camp = 1 //红方	
+		d.players[1].camp = 2
+	} else {
+		d.players[0].camp = 2
+		d.players[1].camp = 1 //红方
 	}
-	
+
 	d.gameCtx.Ready()
 	d.logger.Debugf("玩家数量=%d, 所有麻将=%v", totalPlayerCount)
 	d.logger.Debugf("游戏开局, 麻将数量=%d 所有麻将: %v", len(d.gameCtx.Origin), d.gameCtx.Origin)
 
-	duan := &protocol.DuanPai{ Pieces: d.gameCtx.Current, Camps:[]protocol.CampInfo{} }
+	duan := &protocol.DuanPai{Pieces: d.gameCtx.Current, Camps: []protocol.CampInfo{}}
 	for _, p := range d.players {
-		duan.Camps = append(duan.Camps, protocol.CampInfo{ Uid: p.Uid(), Camp: p.camp })
+		duan.Camps = append(duan.Camps, protocol.CampInfo{Uid: p.Uid(), Camp: p.camp})
 	}
 	d.group.Broadcast("onDuanPai", duan)
 }
@@ -232,7 +226,7 @@ func (d *Desk) start() {
 // 理牌状态之后开始游戏
 func (d *Desk) qiPaiFinished(uid int64) error {
 	if d.status() > DeskStatusDuanPai {
-		d.logger.Debugf("当前牌桌状态: %s", d.status().String())
+		d.logger.Debugf("当前牌桌状态: %s", stringify[d.status()])
 		return errutil.ErrIllegalDeskStatus
 	}
 
@@ -272,70 +266,74 @@ func (d *Desk) play() {
 
 	d.setStatus(DeskStatusPlaying)
 	d.logger.Debug("开始游戏")
-	
-	var(
-		playerOp  OpType = opNull
-		bOver = false
-		campWin = -1
-		bTimeOut= false
+
+	var (
+		playerOp int = opNull
+		campWin      = -1
+		bOver        = false
+		bTimeOut     = false
+		bGiveup      = false
 	)
-	
-MAIN_LOOP:
+
 	for !d.isRoundOver() {
 		//提示当前玩家操作
-		d.hint()
-		
+
 		curPlayer := d.currentPlayer()
-		
+		d.hint(curPlayer)
+
 		//等待当前玩家操作
 		select {
 		case op, ok := <-curPlayer.chOperation:
 			if !ok {
-				break MAIN_LOOP
+				return
 			}
-			playerOp = op.Type
-			d.logger.Debug(stringOpType[op.Type])
+			playerOp = op.OpType
+			d.logger.Debug(stringOpType[op.OpType])
 		case <-d.die:
-			break MAIN_LOOP
+			return
 		case <-time.After(30 * time.Second):
-			//当前玩家超时世界失败
 			bTimeOut = true
-			campWin = curPlayer.camp % d.totalPlayerCount() + 1
+		}
+
+		//是否超时
+		if bTimeOut {
+			campWin = curPlayer.camp%d.totalPlayerCount() + 1
 			d.setStatus(DeskStatusInterruption)
-			break MAIN_LOOP
+			break
 		}
-		
-		//当前玩家操作之后检查是否棋局已完结
-		if playerOp != opEat {
-			//切换下一轮
-			d.nextTurn()
-			continue
-		}
-		
-		bOver, campWin := d.gameCtx.CheckOver() //true 结束 0:平局 1:A 阵营 2:B阵营
-		if bOver {
+
+		//判断玩家的操作
+		if playerOp == opGiveup {
+			bGiveup = true
+			campWin = curPlayer.camp%d.totalPlayerCount() + 1
 			d.setStatus(DeskStatusInterruption)
+			break
+		} else if playerOp == opEat {
+			bOver, campWin = d.gameCtx.CheckOver() //true 结束 0:平局 1:A 阵营 2:B阵营
+			if bOver {
+				d.setStatus(DeskStatusInterruption)
+				break
+			}
 		}
-		else{
-			d.nextTurn()
-		}	
+
+		//没有结束则下一个回合
+		d.nextTurn()
 	}
 
-	if d.status() == DeskStatusDestory {
-		d.logger.Info("已经销毁(二人都离线或解散)")
+	if d.status() != DeskStatusInterruption {
+		d.logger.Info("没有完局")
 		return
 	}
 
-	
-	d.roundOver(campWin, false, bTimeOut)
+	d.roundOver(campWin, bGiveup, bTimeOut)
 }
 
-func (d *Desk) setStatus(s DeskStatus) {
-	atomic.StoreInt32((*int32)(&d.state), int32(s))
+func (d *Desk) setStatus(s int32) {
+	atomic.StoreInt32((*int32)(&d.state), s)
 }
 
-func (d *Desk) status() DeskStatus {
-	return DeskStatus(atomic.LoadInt32((*int32)(&d.state)))
+func (d *Desk) status() int32 {
+	return atomic.LoadInt32((*int32)(&d.state))
 }
 
 func (d *Desk) clean() {
@@ -350,17 +348,17 @@ func (d *Desk) clean() {
 
 //提示玩家操作
 func (d *Desk) hint(p *Player) {
-	hint := &protocol.RoundInfo{Uid: p.Uid(), Camp: p.camp，TimeStamp: time.Now().Unix()}
-	desk.lastHintUid = p.Uid()
-	d.logger.Debugf("玩家最后提示: Hint=%+v", hint)
-	d.group.Broadcast(("onHintPlayer", hint)
+	msg := &protocol.RoundInfo{Uid: p.Uid(), Camp: p.camp, TimeStamp: time.Now().Unix()}
+	d.lastHintUid = p.Uid()
+	d.logger.Debugf("玩家最后提示: Hint=%+v", msg)
+	d.group.Broadcast("onHintPlayer", msg)
 }
 
 //赢家 0:平局 1:A 阵营 2:B阵营 放弃 超时
-func (d *Desk) roundOver(winCamp, bGiveup bool, bTimeOut bool) {
-	uid := 0
+func (d *Desk) roundOver(winCamp int, bGiveup bool, bTimeOut bool) {
+	var uid int64 = 0
 	if winCamp != 0 {
-		uid = d.players[winCamp - 1].Uid()
+		uid = d.players[winCamp-1].Uid()
 	}
 	msg := &protocol.GameResult{Winner: uid, Coin: 10, Camp: winCamp, Giveup: bGiveup, TimeOut: bTimeOut}
 	d.gameResult(msg)
@@ -369,7 +367,7 @@ func (d *Desk) roundOver(winCamp, bGiveup bool, bTimeOut bool) {
 // 结算
 func (d *Desk) gameResult(msg *protocol.GameResult) {
 	d.logger.Debugf("本场游戏结束结算数据: %#v", msg)
-		
+
 	//发送单场统计
 	err := d.group.Broadcast("onGameEnd", msg)
 	if err != nil {
@@ -380,7 +378,7 @@ func (d *Desk) gameResult(msg *protocol.GameResult) {
 
 	async.Run(func() {
 		//if err = db.UpdateDesk(desk); err != nil {
-			//log.Error(err)
+		//log.Error(err)
 		//}
 	})
 }
@@ -459,7 +457,7 @@ func (d *Desk) onPlayerExit(s *session.Session, isDisconnect bool) {
 func (d *Desk) onPlayerReJoin(s *session.Session) error {
 	// 同步房间基本信息
 	basic := &protocol.DeskBasicInfo{
-		DeskID: d.roomNo.String(),
+		DeskID: string(d.roomNo),
 		Title:  d.title(),
 		Desc:   d.desc(true),
 	}
@@ -480,7 +478,6 @@ func (d *Desk) onPlayerReJoin(s *session.Session) error {
 			Sex:      p.sex,
 			IsExit:   false,
 			HeadUrl:  p.head,
-			Score:    p.score,
 			IP:       p.ip,
 		})
 	}
@@ -489,7 +486,7 @@ func (d *Desk) onPlayerReJoin(s *session.Session) error {
 		return err
 	}
 
-	p, err := playerWithSession(s)
+	_, err := playerWithSession(s)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -513,155 +510,178 @@ func (d *Desk) loseCoin() {
 		d.logger.Errorf("扣除玩家房卡错误，没有找到玩家，CreatorID=%d", d.creator)
 		return
 	}
-	p.loseCoin(int64(cardCount)
+	p.loseCoin(int64(cardCount))
 }
 
-
 //认输
-func (d *Desk) onGiveUp(s *session.Session) error{
+func (d *Desk) onGiveUp(s *session.Session) error {
 	if d.status() != DeskStatusPlaying {
 		d.logger.Debug("当前非游戏状态")
 		return nil
 	}
-	
-	d.setStatus(DeskStatusInterruption) //游戏结束中断
-	d.roundOver()	
-}
 
-
-//翻牌
-func (d *Desk) onOpenPiece(s *session.Session, index int) error{
 	p, err := playerWithSession(s)
 	if err != nil {
 		d.logger.Debug("玩家为空")
 		return nil
 	}
-	
+
 	//状态检测
 	if d.status() != DeskStatusPlaying {
 		d.logger.Debug("当前非游戏状态")
 		return nil
 	}
-	
-	//回合检测	
+
+	//回合检测
 	if p.camp != d.curCamp {
 		d.logger.Errorf("不是此玩家的回合")
 		return nil
 	}
-	
+
+	//翻牌通知
+	p.chOperation <- &protocol.OpChoosed{
+		OpType: opGiveup,
+	}
+	return nil
+}
+
+//翻牌
+func (d *Desk) onOpenPiece(s *session.Session, index int) error {
+	p, err := playerWithSession(s)
+	if err != nil {
+		d.logger.Debug("玩家为空")
+		return nil
+	}
+
+	//状态检测
+	if d.status() != DeskStatusPlaying {
+		d.logger.Debug("当前非游戏状态")
+		return nil
+	}
+
+	//回合检测
+	if p.camp != d.curCamp {
+		d.logger.Errorf("不是此玩家的回合")
+		return nil
+	}
+
 	//翻牌
 	piece := d.gameCtx.Open(index)
 	if piece == 0 {
 		return nil
 	}
-	
+
 	//翻牌相应
-	s.Response(&protocol.PieceOpenResponse{ Code: 0, Index: index, Piece: piece})
-	
+	s.Response(&protocol.PieceOpenResponse{Code: 0, Index: index, Piece: piece})
+
 	//翻牌广播
 	d.group.Broadcast("onOpenPiece", &protocol.PieceOpenNotify{Uid: s.UID(), Index: index, Piece: piece})
-	
-	
+
 	//翻牌通知
 	p.chOperation <- &protocol.OpChoosed{
-		Type: opOpen,
+		OpType: opOpen,
 	}
+
+	return nil
 }
 
-
 //移动
-func (d *Desk) onMovePiece(s *session.Session, msg *protocol.PieceMoveRequest) error{
+func (d *Desk) onMovePiece(s *session.Session, msg *protocol.PieceMoveRequest) error {
 	p, err := playerWithSession(s)
 	if err != nil {
 		d.logger.Debug("玩家为空")
 		return nil
 	}
-	
+
 	//状态检测
 	if d.status() != DeskStatusPlaying {
 		d.logger.Debug("当前非游戏状态")
 		return nil
 	}
-	
-	//回合检测	
+
+	//回合检测
 	if p.camp != d.curCamp {
 		d.logger.Errorf("不是此玩家的回合")
 		return nil
 	}
-	
+
 	if d.gameCtx.GetCamp(msg.IndexSrc) != p.camp {
 		d.logger.Errorf("不是自己的棋子")
 		return nil
 	}
-	
+
 	//移动
 	bMove := d.gameCtx.Move(msg.IndexSrc, msg.IndexDest)
-	
-	bCode := 1
+
+	ret := 1
 	if bMove {
-		bCode = 0
+		ret = 0
 	}
-	
+
 	//响应广播操作
-	s.Response(&protocol.PieceMoveResponse{ Code: bCode, Piece: d.gameCtx.Current })
+	s.Response(&protocol.PieceMoveResponse{Code: ret, Pieces: d.gameCtx.Current})
 	if bMove {
 		d.group.Broadcast("onMovePiece", &protocol.PieceMoveNotify{Uid: s.UID(), IndexSrc: msg.IndexSrc, IndexDest: msg.IndexDest})
 	}
-	
+
 	//移动通知
 	if bMove {
 		p.chOperation <- &protocol.OpChoosed{
-			Type: opMove,
-		}	
+			OpType: opMove,
+		}
 	}
+
+	return nil
 }
 
 //吃牌
-func (d *Desk) onEatPiece(s *session.Session, msg* protocol.PieceEatRequest) error{
+func (d *Desk) onEatPiece(s *session.Session, msg *protocol.PieceEatRequest) error {
 	p, err := playerWithSession(s)
 	if err != nil {
 		d.logger.Debug("玩家为空")
 		return nil
 	}
-	
+
 	if d.status() != DeskStatusPlaying {
 		d.logger.Debug("当前非游戏状态")
 		return nil
 	}
-	
-	
-	//回合检测	
+
+	//回合检测
 	if p.camp != d.curCamp {
 		d.logger.Errorf("不是此玩家的回合")
 		return nil
 	}
-	
+
 	if d.gameCtx.GetCamp(msg.IndexSrc) != p.camp {
 		d.logger.Errorf("不是自己的棋子")
 		return nil
 	}
-	
+
 	ret := d.gameCtx.Eat(msg.IndexSrc, msg.IndexDest)
 	//1吃 2被吃 3同归 0失败
-	
-	s.Response(&protocol.PieceEatResponse{Code: ret, Piece: d.gameCtx.Current})
+
+	s.Response(&protocol.PieceEatResponse{Code: ret, Pieces: d.gameCtx.Current})
 	if ret != 0 {
 		d.group.Broadcast("onEatPiece", &protocol.PieceEatNotify{Uid: s.UID(), Code: ret, IndexSrc: msg.IndexSrc, IndexDest: msg.IndexDest})
 	}
-	
+
 	//吃牌通知
 	if ret != 0 {
 		p.chOperation <- &protocol.OpChoosed{
-			Type: opEat,
-		}	
+			OpType: opEat,
+		}
 	}
+
+	return nil
 }
 
 //表情
-func (d *Desk) onShowEnjoy(s *session.Session, msg* protocol.PlayEjoyReq) error{
+func (d *Desk) onShowEnjoy(s *session.Session, msg *protocol.PlayEjoyReq) error {
 	if d.status() != DeskStatusPlaying {
 		d.logger.Debug("当前非游戏状态")
 		return nil
 	}
 	d.group.Broadcast("onShowEnjoy", &protocol.PlayEjoyNotify{Uid: s.UID(), Index: msg.Index})
+	return nil
 }

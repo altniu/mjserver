@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lonng/nanoserver/cmd/dsq/db/model"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
-	"github.com/lonng/nanoserver/db/model"
 	log "github.com/sirupsen/logrus"
 )
 

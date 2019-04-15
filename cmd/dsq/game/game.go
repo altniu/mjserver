@@ -3,11 +3,13 @@ package game
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/lonng/nano"
+	"github.com/lonng/nano/component"
 	"github.com/lonng/nano/serialize/json"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

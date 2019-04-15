@@ -1,10 +1,11 @@
 package db
 
 import (
-	log "github.com/sirupsen/logrus"
 	"time"
 
-	"github.com/lonng/nanoserver/db/model"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/lonng/nanoserver/cmd/dsq/db/model"
 	"github.com/lonng/nanoserver/pkg/errutil"
 )
 

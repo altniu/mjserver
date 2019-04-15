@@ -14,30 +14,20 @@ const (
 	FAIL = 1
 )
 
-type OpType int
-
 const (
-	opNull OpType = iota 
-	opOpen,
-	opMove,
-	opEat,
+	opNull int = iota
+	opGiveup
+	opOpen
+	opMove
+	opEat
 )
 
 var stringOpType = [...]string{
-	opNull:  "无效操作"
-	opOpen:  "翻盘",
-	opMove:  "移动",
-	opEat:   "吃牌",
-}
-
-var stringify = [...]string{
-	DeskStatusCreate:       "创建",
-	DeskStatusDuanPai:      "发牌",
-	DeskStatusQiPai:        "齐牌",
-	DeskStatusPlaying:      "游戏中",
-	DeskStatusInterruption: "游戏终/中止",
-	DeskStatusDestory:      "已销毁",
-	DeskStatusCleaned:      "已清洗",
+	opNull:   "无效操作",
+	opGiveup: "投降",
+	opOpen:   "翻盘",
+	opMove:   "移动",
+	opEat:    "吃牌",
 }
 
 //错误提示
@@ -71,11 +61,9 @@ const (
 	BehaviorEnjoy
 )
 
-type DeskStatus int32
-
 const (
 	//创建桌子
-	DeskStatusCreate DeskStatus = iota
+	DeskStatusCreate int32 = iota
 	//发牌
 	DeskStatusDuanPai
 	//齐牌
@@ -98,8 +86,4 @@ var stringify = [...]string{
 	DeskStatusInterruption: "游戏终/中止",
 	DeskStatusDestory:      "已销毁",
 	DeskStatusCleaned:      "已清洗",
-}
-
-func (s DeskStatus) String() string {
-	return stringify[s]
 }

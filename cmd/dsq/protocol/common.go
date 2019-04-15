@@ -1,7 +1,5 @@
 package protocol
 
-import "fmt"
-
 type AppInfo struct {
 	Name            string                       `json:"name"`             //应用名
 	AppID           string                       `json:"appid"`            //应用id
@@ -31,7 +29,7 @@ type SnakePayOrderInfo struct {
 }
 
 type OrderInfo struct {
-	OrderId      string `json:"order_id"`      //订单号
+	OrderId      string `json:"order_id"`      //订单号176
 	Uid          string `json:"uid"`           //接收者id
 	AppId        string `json:"appid"`         //应用id
 	ServerName   string `json:"server_name"`   //区服名
@@ -161,27 +159,4 @@ type DailyMatchProgressInfo struct {
 
 type PlayerReady struct {
 	Account int64 `json:"account"`
-}
-
-//听牌信息
-type Ting struct {
-	Index int   `json:"index"`
-	Hu    []int `json:"hu"`
-}
-
-//所有被听的牌
-type Tings []Ting
-
-//所有可执行的操作
-type Ops []Op
-
-//提示
-type Hint struct {
-	Ops   Ops   `json:"ops"`
-	Tings Tings `json:"tings"`
-	Uid   int64 `json:"uid"`
-}
-
-func (h *Hint) String() string {
-	return fmt.Sprintf("UID=%d, Ops=%+v, Tings=%+v", h.Uid, h.Ops, h.Tings)
 }

@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lonng/nanoserver/cmd/dsq/web/api"
 	"github.com/lonng/nanoserver/cmd/dsq/db"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
+	"github.com/lonng/nanoserver/cmd/dsq/web/api"
 	"github.com/lonng/nanoserver/pkg/algoutil"
 	"github.com/lonng/nanoserver/pkg/whitelist"
 	"github.com/lonng/nex"
@@ -72,7 +72,6 @@ func startupService() http.Handler {
 	nex.Before(logRequest)
 	mux.Handle("/v1/user/", api.MakeLoginService())
 	mux.Handle("/v1/order/", api.MakeOrderService())
-	mux.Handle("/v1/history/", api.MakeHistoryService())
 	mux.Handle("/v1/desk/", api.MakeDeskService())
 	mux.Handle("/v1/version", nex.Handler(version))
 

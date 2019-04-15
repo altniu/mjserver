@@ -1,9 +1,5 @@
 package protocol
 
-import (
-	"github.com/lonng/nanoserver/pkg/constant"
-)
-
 type GetRankInfoRequest struct {
 	IsSelf bool `json:"isself"`
 	Start  int  `json:"start"`
@@ -53,13 +49,13 @@ type JoinDeskRequest struct {
 }
 
 type TableInfo struct {
-	DeskNo    string              `json:"deskId"`
-	CreatedAt int64               `json:"createdAt"`
-	Creator   int64               `json:"creator"`
-	Title     string              `json:"title"`
-	Desc      string              `json:"desc"`
-	Status    constant.DeskStatus `json:"status"`
-	Mode      int                 `json:"mode"`
+	DeskNo    string `json:"deskId"`
+	CreatedAt int64  `json:"createdAt"`
+	Creator   int64  `json:"creator"`
+	Title     string `json:"title"`
+	Desc      string `json:"desc"`
+	Status    int32  `json:"status"`
+	Mode      int    `json:"mode"`
 }
 
 type JoinDeskResponse struct {
@@ -92,7 +88,7 @@ type CoinChangeInformation struct {
 }
 
 type OpChoosed struct {
-	Type int `json:"type"`
+	OpType int `json:"optype"`
 }
 
 //翻牌

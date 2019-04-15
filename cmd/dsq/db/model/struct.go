@@ -56,6 +56,7 @@ type CardConsume struct {
 
 type Desk struct {
 	Id          int64
+	Mode        int    `xorm:"not null index INT(255) default 3"`
 	Creator     int64  `xorm:"not null index BIGINT(20) default"`
 	DeskNo      string `xorm:"not null index VARCHAR(6) default"`
 	Player0     int64  `xorm:"not null index BIGINT(20) default 0"`

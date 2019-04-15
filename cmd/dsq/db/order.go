@@ -3,7 +3,7 @@ package db
 import (
 	"strings"
 
-	"github.com/lonng/nanoserver/db/model"
+	"github.com/lonng/nanoserver/cmd/dsq/db/model"
 	"github.com/lonng/nanoserver/pkg/algoutil"
 	"github.com/lonng/nanoserver/pkg/errutil"
 )

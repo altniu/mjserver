@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -87,7 +86,6 @@ func MakeLoginService() http.Handler {
 	router.Handle("/v1/user/login/query", nex.Handler(queryHandler)).Methods("POST")        //三方登录
 	router.Handle("/v1/user/login/3rd", nex.Handler(thirdUserLoginHandler)).Methods("POST") //三方登录
 	router.Handle("/v1/user/login/guest", nex.Handler(guestLoginHandler)).Methods("POST")   //游客登录
-	router.Handle("/v1/user/club", nex.Handler(clubListHandler)).Methods("GET")             //获取俱乐部列表
 	return router
 }
 
@@ -123,35 +121,6 @@ func checkSession(uid int64) {
 	// fixed: 之前已有session未断开
 	// 检查是否该玩家是否有未断开的网络连接, 把之前的号顶掉
 	// game.Kick(uid)
-}
-
-func clubs(uid int64) []protocol.ClubItem {
-	list, err := db.ClubList(uid)
-	if err != nil {
-		return []protocol.ClubItem{}
-	}
-
-	ret := make([]protocol.ClubItem, len(list))
-	for i := range list {
-		ret[i] = protocol.ClubItem{
-			Id:        list[i].ClubId,
-			Name:      list[i].Name,
-			Desc:      list[i].Desc,
-			Member:    list[i].Member,
-			MaxMember: list[i].MaxMember,
-		}
-	}
-	return ret
-}
-
-func clubListHandler(form *nex.Form) (*protocol.ClubListResponse, error) {
-	uid := form.Int64OrDefault("uid", -1)
-	if uid < 0 {
-		return nil, errors.New("服务器内部错误")
-	}
-
-	list := clubs(uid)
-	return &protocol.ClubListResponse{Data: list}, nil
 }
 
 func thirdUserLoginHandler(r *http.Request, data *protocol.ThirdUserLoginRequest) (*protocol.LoginResponse, error) {
@@ -218,7 +187,6 @@ func thirdUserLoginHandler(r *http.Request, data *protocol.ThirdUserLoginRequest
 		PlayerIP: ip(r.RemoteAddr),
 		Config:   config,
 		Messages: messages,
-		ClubList: clubs(u.Id),
 		Debug:    0, //u.Debug,
 	}
 
@@ -267,7 +235,6 @@ func guestLoginHandler(r *http.Request, data *protocol.LoginRequest) (*protocol.
 		PlayerIP: ip(r.RemoteAddr),
 		Config:   config,
 		Messages: messages,
-		ClubList: clubs(user.Id),
 		Debug:    0, //user.Debug,
 	}
 	resp.Name = fmt.Sprintf("G%d", resp.Uid)

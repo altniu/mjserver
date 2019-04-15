@@ -1,14 +1,8 @@
 package game
 
 import (
-	"fmt"
-
-	"errors"
-
 	"github.com/lonng/nano/session"
 	"github.com/lonng/nanoserver/cmd/dsq/db"
-	"github.com/lonng/nanoserver/cmd/dsq/db/model"
-	"github.com/lonng/nanoserver/cmd/dsq/game/dsq"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
 	"github.com/lonng/nanoserver/pkg/async"
 	log "github.com/sirupsen/logrus"
@@ -130,7 +124,7 @@ func (p *Player) syncDeskData() error {
 		Players: []protocol.DeskPlayerData{},
 	}
 
-	for i, player := range desk.players {
+	for _, player := range desk.players {
 		uid := player.Uid()
 		playerData := protocol.DeskPlayerData{
 			Uid: uid,

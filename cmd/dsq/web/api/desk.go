@@ -26,25 +26,15 @@ func DeskByID(id int64) (*protocol.Desk, error) {
 		return nil, err
 	}
 	return &protocol.Desk{
-		Id:           p.Id,
-		Creator:      p.Creator,
-		Mode:         p.Mode,
-		Round:        p.Round,
-		DeskNo:       p.DeskNo,
-		Player0:      p.Player0,
-		Player1:      p.Player1,
-		Player2:      p.Player2,
-		Player3:      p.Player3,
-		PlayerName0:  p.PlayerName0,
-		PlayerName1:  p.PlayerName1,
-		PlayerName2:  p.PlayerName2,
-		PlayerName3:  p.PlayerName3,
-		ScoreChange0: p.ScoreChange0,
-		ScoreChange1: p.ScoreChange1,
-		ScoreChange2: p.ScoreChange2,
-		ScoreChange3: p.ScoreChange3,
-		CreatedAt:    p.CreatedAt,
-		DismissAt:    p.Creator,
+		Id:          p.Id,
+		Creator:     p.Creator,
+		Mode:        p.Mode,
+		DeskNo:      p.DeskNo,
+		Player0:     p.Player0,
+		Player1:     p.Player1,
+		PlayerName0: p.PlayerName0,
+		PlayerName1: p.PlayerName1,
+		CreatedAt:   p.CreatedAt,
 	}, nil
 
 }
@@ -68,24 +58,14 @@ func DeskList(playerId int64) ([]protocol.Desk, int64, error) {
 		list[i] = protocol.Desk{
 			Id:           p.Id,
 			Creator:      p.Creator,
-			Round:        p.Round,
 			Mode:         p.Mode,
 			DeskNo:       p.DeskNo,
 			Player0:      p.Player0,
 			Player1:      p.Player1,
-			Player2:      p.Player2,
-			Player3:      p.Player3,
 			PlayerName0:  p.PlayerName0,
 			PlayerName1:  p.PlayerName1,
-			PlayerName2:  p.PlayerName2,
-			PlayerName3:  p.PlayerName3,
-			ScoreChange0: p.ScoreChange0,
-			ScoreChange1: p.ScoreChange1,
-			ScoreChange2: p.ScoreChange2,
-			ScoreChange3: p.ScoreChange3,
 			CreatedAt:    p.CreatedAt,
 			CreatedAtStr: createdAtStr,
-			DismissAt:    p.Creator,
 		}
 	}
 	return list, int64(len(list)), nil
