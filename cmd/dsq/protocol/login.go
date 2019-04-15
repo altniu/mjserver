@@ -84,8 +84,6 @@ type LoginToGameServerRequest struct {
 	Uid     int64  `json:"uid"`
 	HeadUrl string `json:"headUrl"`
 	Sex     int    `json:"sex"` //[0]未知 [1]男 [2]女
-	Coin    int    `json:"coin"`
-	IP      string `json:"ip"`
 }
 
 type EncryptTest struct {

@@ -3,7 +3,7 @@
 cpuprofile = true
 debug = true
 heartbeat = 30
-consume = "4/2,8/3,16/4" #房卡消耗, 使用逗号隔开, 局数/房卡数, 例如4局消耗1张, 8局消耗1张, 16局消耗2张, 则为: 4/1,8/1,16/2
+consume = "1/10,2/20" #
 
 #WEB服务器设置
 [webserver]
@@ -29,7 +29,7 @@ port = 6379
 [database]
 host = "129.204.58.232"
 port = 3306
-dbname = "scmj"
+dbname = "dsq"
 password = "smy180626"
 username = "stephen"
 args = "charset=utf8mb4"
@@ -56,8 +56,8 @@ ip = ["10.10.*", "127.0.0.1", ".*"]                 #白名单地址, 支持gola
 
 #分享信息
 [share]
-title = "血战到底"
-desc = "纯正四川玩法，快捷便利的掌上血战，轻松组局，随时随地尽情游戏"
+title = "斗兽棋"
+desc = "斗兽棋，尽享童年棋趣，随时随地尽情游戏"
 
 #更新设置
 [update]

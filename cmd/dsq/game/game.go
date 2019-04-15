@@ -42,7 +42,7 @@ func SetCardConsume(cfg string) {
 		consume[rd] = cd
 	}
 
-	logger.Infof("当前游戏房卡消耗配置: %+v", consume)
+	logger.Infof("当前游戏体力消耗配置: %+v", consume)
 }
 
 // Startup 初始化游戏服务器
@@ -68,8 +68,8 @@ func Startup() {
 	logger.Info("game service starup")
 
 	// register game handler 注册组件
-	nano.Register(defaultPlayerManager, component.WithName("gate"), component.WithNameFunc(strings.ToLower))
-	nano.Register(defaultDeskManager, component.WithName("game"), component.WithNameFunc(strings.ToLower))
+	nano.Register(defaultPlayerManager, component.WithName("gate"))
+	nano.Register(defaultDeskManager, component.WithName("game")) //component.WithNameFunc(strings.ToLower)
 
 	// 加密管道
 	c := newCrypto()
@@ -78,9 +78,10 @@ func Startup() {
 	pipeline.Outbound().PushBack(c.outbound)
 
 	//json作为传输协议
+
+	nano.SetWSPath("/nano")
 	nano.SetSerializer(json.NewSerializer())
 	addr := fmt.Sprintf(":%d", viper.GetInt("game-server.port"))
-	http.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("web"))))
 	nano.SetCheckOriginFunc(func(_ *http.Request) bool { return true })
-	nano.ListenWS(addr, nano.WithPipeline(pipeline))
+	nano.ListenWS(addr) //nano.WithPipeline(pipeline)
 }

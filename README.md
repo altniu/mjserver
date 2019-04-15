@@ -12,5 +12,10 @@ golang版本：go1.11
 ### 改善为棋类游戏框架
 
 
+### 后台应用
+
+广播:
+http://127.0.0.1:12307/v1/gm/broadcast?message="test broacat "
+
 
 

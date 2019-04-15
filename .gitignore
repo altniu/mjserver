@@ -5,3 +5,5 @@ cmd/kwxd/configs/config.local.toml
 /txy_root
 /mahjong
 /mahjong.exe
+/dsq.exe
+/*.pprof

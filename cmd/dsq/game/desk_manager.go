@@ -6,9 +6,9 @@ import (
 
 	"github.com/lonng/nanoserver/cmd/dsq/db"
 	"github.com/lonng/nanoserver/cmd/dsq/protocol"
+	"github.com/lonng/nanoserver/cmd/dsq/room"
 	"github.com/lonng/nanoserver/pkg/async"
 	"github.com/lonng/nanoserver/pkg/errutil"
-	"github.com/lonng/nanoserver/pkg/room"
 
 	"github.com/lonng/nano"
 	"github.com/lonng/nano/component"
@@ -171,12 +171,13 @@ func (manager *DeskManager) ReConnect(s *session.Session, req *protocol.ReConnec
 	// 设置用户
 	p, ok := defaultPlayerManager.player(uid)
 	if !ok {
-		logger.Infof("玩家之前用户信息已被清除，重新初始化用户信息: UID=%d", uid)
 		ip := ""
 		if parts := strings.Split(s.RemoteAddr().String(), ":"); len(parts) > 0 {
 			ip = parts[0]
 		}
-		p = newPlayer(s, uid, req.Name, req.HeadUrl, ip, req.Sex)
+		logger.Infof("玩家之前用户信息已被清除，重新初始化用户信息: UID=%d ip=%s", uid, ip)
+
+		p = newPlayer(s, uid, req.Name, req.HeadUrl, req.Sex)
 		defaultPlayerManager.setPlayer(uid, p)
 	} else {
 		logger.Infof("玩家之前用户信息存在服务器上，替换session: UID=%d", uid)
@@ -305,6 +306,7 @@ func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.Create
 
 	//消耗金币
 	count := requireCardCount(data.DeskOpts.Mode)
+	logger.Infof("used coin %d, player has coin:%d", count, p.coin)
 	if p.coin < int64(count) {
 		return s.Response(deskCardNotEnough)
 	}

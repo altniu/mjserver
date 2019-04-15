@@ -56,16 +56,16 @@ func (p *Player) reset() {
 	p.chOperation = make(chan *protocol.OpChoosed, 1)
 }
 
-func newPlayer(s *session.Session, uid int64, name, head, ip string, sex int) *Player {
+func newPlayer(s *session.Session, uid int64, name, head string, sex int) *Player {
 	p := &Player{
 		uid:         uid,
 		name:        name,
 		head:        head,
-		ip:          ip,
 		sex:         sex,
 		camp:        -1,
 		logger:      log.WithField(fieldPlayer, uid),
 		chOperation: make(chan *protocol.OpChoosed, 1),
+		coin:        1000,
 	}
 	p.bindSession(s)
 	p.syncCoinFromDB()

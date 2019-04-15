@@ -96,7 +96,7 @@ func (m *PlayerManager) Login(s *session.Session, req *protocol.LoginToGameServe
 	log.Infof("玩家: %d登录: %+v", uid, req)
 	if p, ok := m.player(uid); !ok {
 		log.Infof("玩家: %d不在线，创建新的玩家", uid)
-		p = newPlayer(s, uid, req.Name, req.HeadUrl, req.IP, req.Sex)
+		p = newPlayer(s, uid, req.Name, req.HeadUrl, req.Sex)
 		m.setPlayer(uid, p)
 	} else {
 		log.Infof("玩家: %d已经在线", uid)
@@ -126,7 +126,7 @@ func (m *PlayerManager) Login(s *session.Session, req *protocol.LoginToGameServe
 		Nickname: req.Name,
 		Sex:      req.Sex,
 		HeadUrl:  req.HeadUrl,
-		Coin:     req.Coin,
+		Coin:     10000,
 	}
 
 	//返回消息给client
