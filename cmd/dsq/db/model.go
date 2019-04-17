@@ -160,7 +160,6 @@ func syncSchema() {
 		new(model.Agent),
 		new(model.CardConsume),
 		new(model.Desk),
-		new(model.History),
 		new(model.Login),
 		new(model.Online),
 		new(model.Order),
@@ -170,7 +169,5 @@ func syncSchema() {
 		new(model.Trade),
 		new(model.User),
 		new(model.Uuid),
-		new(model.Club),
-		new(model.UserClub),
 	)
 }
