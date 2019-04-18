@@ -19,7 +19,7 @@ import (
 
 type Closer func()
 
-var logger = log.WithField("component", "http") //设置logger的固定Field key-value形式
+var logger = log.WithField("component", "web") //设置logger的固定Field key-value形式
 
 func dbStartup() func() {
 	//"%s:%s@tcp(%s:%d)/%s?%s"
@@ -56,6 +56,7 @@ func pongHandler() (string, error) {
 	return "pong", nil
 }
 
+//日志请求
 func logRequest(ctx context.Context, r *http.Request) (context.Context, error) {
 	if uri := r.RequestURI; uri != "/ping" {
 		logger.Debugf("Method=%s, RemoteAddr=%s URL=%s", r.Method, r.RemoteAddr, uri)
@@ -69,6 +70,7 @@ func startupService() http.Handler {
 		webDir = viper.GetString("webserver.static_dir")
 	)
 
+	//API
 	nex.Before(logRequest)
 	mux.Handle("/v1/user/", api.MakeLoginService())
 	mux.Handle("/v1/order/", api.MakeOrderService())
@@ -91,6 +93,7 @@ func startupService() http.Handler {
 	mux.Handle("/v1/stats/retention", nex.Handler(retentionHandler).Before(authFilter))             // 留存
 	mux.Handle("/v1/stats/consume", nex.Handler(cardConsumeStatsHandler).Before(authFilter))        // 房卡消耗
 
+	//其他
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(webDir))))
 	mux.Handle("/ping", nex.Handler(pongHandler))
 
