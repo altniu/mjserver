@@ -76,16 +76,19 @@ func newPlayer(s *session.Session, uid int64, name, head string, sex int) *Playe
 // 异步从数据库同步玩家数据
 func (p *Player) syncCoinFromDB() {
 	async.Run(func() {
-		u, err := db.QueryUser(p.uid)
-		if err != nil {
-			p.logger.Errorf("玩家同步金币错误, Error=%v", err)
-			return
-		}
+		/*
+			u, err := db.QueryUser(p.uid)
+			if err != nil {
+				p.logger.Errorf("玩家同步金币错误, Error=%v", err)
+				return
+			}
 
-		p.coin = u.Coin
-		if s := p.session; s != nil {
-			s.Push("onCoinChange", &protocol.CoinChangeInformation{p.coin})
-		}
+			p.coin = u.Coin
+			if s := p.session; s != nil {
+				s.Push("onCoinChange", &protocol.CoinChangeInformation{p.coin})
+			}
+		*/
+		p.session.Push("onCoinChange", &protocol.CoinChangeInformation{1000})
 	})
 }
 

@@ -343,7 +343,7 @@ func (manager *DeskManager) CreateDesk(s *session.Session, data *protocol.Create
 
 //新join在session的context中尚未有desk的cache
 func (manager *DeskManager) Join(s *session.Session, data *protocol.JoinDeskRequest) error {
-	p, err := playerWithSession(s)
+	_, err := playerWithSession(s)
 	if err != nil {
 		return nil
 	}
