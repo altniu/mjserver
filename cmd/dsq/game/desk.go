@@ -165,6 +165,7 @@ func (d *Desk) playerJoin(s *session.Session, isReJoin bool) error {
 		}
 		if !exists {
 			p = s.Value(fieldPlayer).(*Player)
+			d.group.Add(s)
 			d.players = append(d.players, p)
 			for _, p := range d.players {
 				p.setDesk(d)
