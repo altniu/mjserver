@@ -11,6 +11,7 @@ replace (
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/chanxuehong/rand v0.0.0-20180830053958-4b3aff17f488 // indirect
+	github.com/go-delve/delve v1.2.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/go-xorm/core v0.6.2
 	github.com/go-xorm/xorm v0.7.1

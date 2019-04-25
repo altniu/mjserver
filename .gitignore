@@ -7,3 +7,4 @@ cmd/kwxd/configs/config.local.toml
 /mahjong.exe
 /dsq.exe
 /*.pprof
+/cmd/dsq/*.pprof
