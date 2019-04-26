@@ -1,215 +1,215 @@
 package game
 
 import (
-	"fmt"
+    "fmt"
 
-	"github.com/lonng/nano/session"
-	"github.com/lonng/nanoserver/cmd/mahjong/game/mahjong"
-	"github.com/lonng/nanoserver/db"
-	"github.com/lonng/nanoserver/db/model"
-	"github.com/lonng/nanoserver/pkg/async"
-	"github.com/lonng/nanoserver/protocol"
-	log "github.com/sirupsen/logrus"
+    "github.com/lonng/nano/session"
+    "github.com/lonng/nanoserver/cmd/mahjong/game/mahjong"
+    "github.com/lonng/nanoserver/db"
+    "github.com/lonng/nanoserver/db/model"
+    "github.com/lonng/nanoserver/pkg/async"
+    "github.com/lonng/nanoserver/protocol"
+    log "github.com/sirupsen/logrus"
 )
 
 type Loser struct {
-	uid   int64
-	score int
+    uid   int64
+    score int
 }
 
 //Player
 type Player struct {
-	uid  int64  // 用户ID
-	head string // 头像地址
-	name string // 玩家名字
-	ip   string // ip地址
-	sex  int    // 性别
-	coin int64  // 金币数量
+    uid  int64  // 用户ID
+    head string // 头像地址
+    name string // 玩家名字
+    ip   string // ip地址
+    sex  int    // 性别
+    coin int64  // 金币数量
 
-	session *session.Session // 玩家session
+    session *session.Session // 玩家session
 
-	// 游戏相关字段
-	onHand   mahjong.Mahjong
-	pongKong mahjong.Mahjong
-	chupai   mahjong.Mahjong
-	ctx      *mahjong.Context
+    // 游戏相关字段
+    onHand   mahjong.Mahjong
+    pongKong mahjong.Mahjong
+    chupai   mahjong.Mahjong
+    ctx      *mahjong.Context
 
-	chOperation chan *protocol.OpChoosed
+    chOperation chan *protocol.OpChoosed
 
-	desk  *Desk //当前桌
-	turn  int   //当前玩家在桌上的方位
-	score int   //经过n局后,当前玩家余下的分值数,默认为1000
+    desk  *Desk //当前桌
+    turn  int   //当前玩家在桌上的方位
+    score int   //经过n局后,当前玩家余下的分值数,默认为1000
 
-	logger *log.Entry // 日志
+    logger *log.Entry // 日志
 }
 
 func newPlayer(s *session.Session, uid int64, name, head, ip string, sex int) *Player {
-	p := &Player{
-		uid:   uid,
-		name:  name,
-		head:  head,
-		ctx:   &mahjong.Context{Uid: uid},
-		ip:    ip,
-		sex:   sex,
-		score: 1000,
+    p := &Player{
+        uid:   uid,
+        name:  name,
+        head:  head,
+        ctx:   &mahjong.Context{Uid: uid},
+        ip:    ip,
+        sex:   sex,
+        score: 1000,
 
-		logger: log.WithField(fieldPlayer, uid),
+        logger: log.WithField(fieldPlayer, uid),
 
-		chOperation: make(chan *protocol.OpChoosed, 1),
-	}
+        chOperation: make(chan *protocol.OpChoosed, 1),
+    }
 
-	p.ctx.Reset()
-	p.bindSession(s)
-	p.syncCoinFromDB()
+    p.ctx.Reset()
+    p.bindSession(s)
+    p.syncCoinFromDB()
 
-	return p
+    return p
 }
 
 // 异步从数据库同步玩家数据
 func (p *Player) syncCoinFromDB() {
-	//go func  goroutine中执行func并且通过defer recover捕获异常
-	async.Run(func() {
-		u, err := db.QueryUser(p.uid)
-		if err != nil {
-			p.logger.Errorf("玩家同步金币错误, Error=%v", err)
-			return
-		}
+    //go func  goroutine中执行func并且通过defer recover捕获异常
+    async.Run(func() {
+        u, err := db.QueryUser(p.uid)
+        if err != nil {
+            p.logger.Errorf("玩家同步金币错误, Error=%v", err)
+            return
+        }
 
-		p.coin = u.Coin
-		if s := p.session; s != nil {
-			s.Push("onCoinChange", &protocol.CoinChangeInformation{p.coin})
-		}
-	})
+        p.coin = u.Coin
+        if s := p.session; s != nil {
+            s.Push("onCoinChange", &protocol.CoinChangeInformation{p.coin})
+        }
+    })
 }
 
 // 异步扣除玩家金币
 func (p *Player) loseCoin(count int64, consume *model.CardConsume) {
-	async.Run(func() {
-		u, err := db.QueryUser(p.uid)
-		if err != nil {
-			p.logger.Errorf("扣除金币，查询玩家错误, Error=%v", err)
-			return
-		}
+    async.Run(func() {
+        u, err := db.QueryUser(p.uid)
+        if err != nil {
+            p.logger.Errorf("扣除金币，查询玩家错误, Error=%v", err)
+            return
+        }
 
-		// 即使数据库不成功，玩家金币数量依然扣除
-		p.coin -= count
-		u.Coin = p.coin
-		if err := db.UpdateUser(u); err != nil {
-			p.logger.Errorf("扣除金币，更新金币数量错误, Error=%v", err)
-			return
-		}
+        // 即使数据库不成功，玩家金币数量依然扣除
+        p.coin -= count
+        u.Coin = p.coin
+        if err := db.UpdateUser(u); err != nil {
+            p.logger.Errorf("扣除金币，更新金币数量错误, Error=%v", err)
+            return
+        }
 
-		if u.Coin != p.coin {
-			p.logger.Errorf("玩家扣除金币，同步到数据库后，发现金币数量不一致，玩家数量=%d，数据库数量=%d", p.coin, u.Coin)
-		}
+        if u.Coin != p.coin {
+            p.logger.Errorf("玩家扣除金币，同步到数据库后，发现金币数量不一致，玩家数量=%d，数据库数量=%d", p.coin, u.Coin)
+        }
 
-		if err := db.Insert(consume); err != nil {
-			p.logger.Errorf("新增消费数据错误，Error=%v Payload=%+v", err, consume)
-		}
+        if err := db.Insert(consume); err != nil {
+            p.logger.Errorf("新增消费数据错误，Error=%v Payload=%+v", err, consume)
+        }
 
-		if s := p.session; s != nil {
-			s.Push("onCoinChange", &protocol.CoinChangeInformation{p.coin})
-		}
-	})
+        if s := p.session; s != nil {
+            s.Push("onCoinChange", &protocol.CoinChangeInformation{p.coin})
+        }
+    })
 }
 
 //设置玩家所在的桌子
 func (p *Player) setDesk(d *Desk, turn int) {
-	if d == nil {
-		p.logger.Error("桌号为空")
-		return
-	}
+    if d == nil {
+        p.logger.Error("桌号为空")
+        return
+    }
 
-	p.desk = d
-	p.turn = turn
+    p.desk = d
+    p.turn = turn
 
-	p.logger = log.WithFields(log.Fields{fieldDesk: p.desk.roomNo, fieldPlayer: p.uid})
+    p.logger = log.WithFields(log.Fields{fieldDesk: p.desk.roomNo, fieldPlayer: p.uid})
 
-	//全、半频道
-	p.ctx.Opts = d.opts
-	p.ctx.DeskNo = string(d.roomNo)
+    //全、半频道
+    p.ctx.Opts = d.opts
+    p.ctx.DeskNo = string(d.roomNo)
 }
 
 func (p *Player) setIp(ip string) {
-	p.ip = ip
+    p.ip = ip
 }
 
 //player 关联session session关联player
 func (p *Player) bindSession(s *session.Session) {
-	p.session = s
-	p.session.Set(kCurPlayer, p) //"player"字段
+    p.session = s
+    p.session.Set(kCurPlayer, p) //"player"字段
 }
 
 func (p *Player) removeSession() {
-	p.session.Remove(kCurPlayer)
-	p.session = nil
+    p.session.Remove(kCurPlayer)
+    p.session = nil
 }
 
 func (p *Player) Uid() int64 {
-	return p.uid
+    return p.uid
 }
 
 func (p *Player) duanPai(ids mahjong.Tiles) {
-	p.onHand = mahjong.FromID(ids)
-	p.logger.Debugf("游戏开局, 手牌数量=%d 手牌: %v", len(p.handTiles()), p.handTiles())
-	if len(p.onHand) == 14 {
-		p.ctx.NewDrawingID = p.onHand[13].Id
-	}
+    p.onHand = mahjong.FromID(ids)
+    p.logger.Debugf("游戏开局, 手牌数量=%d 手牌: %v", len(p.handTiles()), p.handTiles())
+    if len(p.onHand) == 14 {
+        p.ctx.NewDrawingID = p.onHand[13].Id
+    }
 }
 
 func (p *Player) chuPai() int {
-	var tid int
+    var tid int
 
 ctrl:
-	p.hint([]protocol.Op{{Type: protocol.OptypeChu}}, p.tingTiles())
-	select {
-	case op, ok := <-p.chOperation:
-		if !ok {
-			return deskDissolved
-		}
+    p.hint([]protocol.Op{{Type: protocol.OptypeChu}}, p.tingTiles())
+    select {
+    case op, ok := <-p.chOperation:
+        if !ok {
+            return deskDissolved
+        }
 
-		if op.Type != protocol.OptypeChu {
-			p.logger.Errorf("玩家操作异常，期待操作出牌，获取操作=%+v", op)
-			goto ctrl
-		}
+        if op.Type != protocol.OptypeChu {
+            p.logger.Errorf("玩家操作异常，期待操作出牌，获取操作=%+v", op)
+            goto ctrl
+        }
 
-		tid = op.TileID
-		if tid < 0 {
-			p.logger.Debugf("玩家读取到一个非法的麻将ID: ID=%+v", op)
-		}
+        tid = op.TileID
+        if tid < 0 {
+            p.logger.Debugf("玩家读取到一个非法的麻将ID: ID=%+v", op)
+        }
 
-	case <-p.desk.die:
-		return deskDissolved
-	}
+    case <-p.desk.die:
+        return deskDissolved
+    }
 
-	// 删掉已经出过的牌
-	for j, mj := range p.onHand {
-		if mj.Id == tid {
-			rest := make([]*mahjong.Tile, len(p.onHand)-1)
-			copy(rest[:j], p.onHand[:j])
-			copy(rest[j:], p.onHand[j+1:])
-			p.onHand = rest
-			break
-		}
-	}
+    // 删掉已经出过的牌
+    for j, mj := range p.onHand {
+        if mj.Id == tid {
+            rest := make([]*mahjong.Tile, len(p.onHand)-1)
+            copy(rest[:j], p.onHand[:j])
+            copy(rest[j:], p.onHand[j+1:])
+            p.onHand = rest
+            break
+        }
+    }
 
-	p.logger.Debugf("玩家出牌: 麻将=%v(%d) 新上手=%v 余牌=%v",
-		mahjong.TileFromID(tid),
-		tid,
-		p.ctx.NewDrawingID,
-		p.handTiles())
+    p.logger.Debugf("玩家出牌: 麻将=%v(%d) 新上手=%v 余牌=%v",
+        mahjong.TileFromID(tid),
+        tid,
+        p.ctx.NewDrawingID,
+        p.handTiles())
 
-	p.action(protocol.OptypeChu, []int{tid})
-	return tid
+    p.action(protocol.OptypeChu, []int{tid})
+    return tid
 }
 
 // 让玩家选择胡牌
 // @param: hasHint 是否已经提示过玩家
 func (p *Player) hu(tileID int, hasHint bool) int {
-	// 真实玩家
-	if !hasHint {
-		p.hint([]protocol.Op{
-			{Type: protocol.OptypeHu, TileIDs: []int{tileID}},
+    // 真实玩家
+    if !hasHint {
+        p.hint([]protocol.Op{
+            {Type: protocol.OptypeHu, TileIDs: []int{tileID}},
 			{Type: protocol.OptypePass},
 		})
 	}

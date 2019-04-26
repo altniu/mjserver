@@ -3,34 +3,34 @@ package game
 //玩家准备和齐牌状态记录
 
 type prepareContext struct {
-	sortedStatus map[int64]bool //是否已经齐牌完毕
-	readyStatus  map[int64]bool //是否已经ready完毕
+    sortedStatus map[int64]bool //是否已经齐牌完毕
+    readyStatus  map[int64]bool //是否已经ready完毕
 }
 
 func newPrepareContext() *prepareContext {
-	return &prepareContext{
-		sortedStatus: map[int64]bool{},
-		readyStatus:  map[int64]bool{},
-	}
+    return &prepareContext{
+        sortedStatus: map[int64]bool{},
+        readyStatus:  map[int64]bool{},
+    }
 }
 
 func (p *prepareContext) isReady(uid int64) bool {
-	return p.readyStatus[uid]
+    return p.readyStatus[uid]
 }
 
 func (p *prepareContext) ready(uid int64) {
-	p.readyStatus[uid] = true
+    p.readyStatus[uid] = true
 }
 
 func (p *prepareContext) sorted(uid int64) {
-	p.sortedStatus[uid] = true
+    p.sortedStatus[uid] = true
 }
 
 func (p *prepareContext) isSorted(uid int64) bool {
-	return p.sortedStatus[uid]
+    return p.sortedStatus[uid]
 }
 
 func (p *prepareContext) reset() {
-	p.sortedStatus = map[int64]bool{}
-	p.readyStatus = map[int64]bool{}
+    p.sortedStatus = map[int64]bool{}
+    p.readyStatus = map[int64]bool{}
 }

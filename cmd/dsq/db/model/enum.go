@@ -1,6 +1,6 @@
 package model
 
 const (
-	UserClubStatusApply = 1
-	UserClubStatusAgree = 2
+    UserClubStatusApply = 1
+    UserClubStatusAgree = 2
 )
