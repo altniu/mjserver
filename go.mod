@@ -19,6 +19,7 @@ require (
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/lonng/nano v0.4.0
 	github.com/lonng/nex v1.4.1
+	github.com/mdempsky/gocode v0.0.0-20190203001940-7fb65232883f // indirect
 	github.com/pborman/uuid v1.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.3.0
