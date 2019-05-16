@@ -290,10 +290,12 @@ func (d *Desk) play() {
 				return
 			}
 			playerOp = op.OpType
-			d.logger.Debug(stringOpType[op.OpType])
+			d.logger.Debug("玩家操作", stringOpType[op.OpType])
 		case <-d.die:
+			d.logger.Debug("牌桌挂了")
 			return
 		case <-time.After(30 * time.Second):
+			d.logger.Debug("傻逼超时了")
 			bTimeOut = true
 		}
 
@@ -356,11 +358,20 @@ func (d *Desk) hint(p *Player) {
 	d.group.Broadcast("onHintPlayer", msg)
 }
 
+func (d *Desk) getPlayerByCamp(camp int) *Player {
+	for _, p := range d.players {
+		if p.camp == camp {
+			return p
+		}
+	}
+	return nil
+}
+
 //赢家 0:平局 1:A 阵营 2:B阵营 放弃 超时
 func (d *Desk) roundOver(winCamp int, bGiveup bool, bTimeOut bool) {
 	var uid int64 = 0
 	if winCamp != 0 {
-		uid = d.players[winCamp-1].Uid()
+		uid = d.getPlayerByCamp(winCamp).Uid()
 	}
 	msg := &protocol.GameResult{Winner: uid, Coin: 10, Camp: winCamp, Giveup: bGiveup, TimeOut: bTimeOut}
 	d.gameResult(msg)
